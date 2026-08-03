@@ -39,7 +39,7 @@ static uint32_t BENCHMARK_measureEmptyLoop(uint32_t loop_count);
 
 __attribute__((noinline, aligned(16))) static uint32_t BENCHMARK_measureEmptyLoop(uint32_t loop_count)
 {
-    uint32_t t0, t1;
+    volatile uint32_t t0, t1;
     __DSB();
     __ISB();
     __NOP();
@@ -78,10 +78,10 @@ bool BENCHMARK_calc_overhead(uint32_t loop_count, uint32_t *loop_overhead, uint3
         BENCHMARK_systemWarmup();
         BENCHMARK_assertNeededComponents();
     }
-    uint32_t loop_oh_1 = 0U;
-    uint32_t loop_oh_2 = 0U;
-    uint32_t t0        = 0;
-    uint32_t t1        = 0;
+    volatile uint32_t loop_oh_1 = 0U;
+    volatile uint32_t loop_oh_2 = 0U;
+    volatile uint32_t t0        = 0;
+    volatile uint32_t t1        = 0;
 
     __DSB();
     __ISB();
