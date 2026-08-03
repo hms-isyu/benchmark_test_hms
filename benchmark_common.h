@@ -13,6 +13,9 @@
 **    Template Version 4
 ***************************************************************************************************/
 
+#ifndef BENCHMARK_COMMON_H
+#define BENCHMARK_COMMON_H
+
 /***************************************************************************************************
 **    include-files
 ***************************************************************************************************/
@@ -67,3 +70,5 @@ extern void BENCHMARK_assertQuietSystem(void);
 extern void BENCHMARK_assertNeededComponents(void);
 
 extern uint32_t BENCHMARK_MS_to_Ticks(uint32_t ms);
+
+#endif /* BENCHMARK_COMMON_H */
