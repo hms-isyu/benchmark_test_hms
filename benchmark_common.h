@@ -29,7 +29,7 @@
 **    definitions
 ***************************************************************************************************/
 
-#define TEST_SIGNALING_EVNT_DURATION (2000U) /* in ms */
+#define TEST_SIGNALING_EVNT_DURATION (1000U) /* in ms */
 
 __attribute__((always_inline)) static inline uint32_t BENCHMARK_get_counter_value(void)
 {

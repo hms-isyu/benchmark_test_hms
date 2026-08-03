@@ -17,8 +17,7 @@
 ***************************************************************************************************/
 
 #include "benchmark_common.h"
-#include "benchmark_config.h"
-#include "board.h"
+#include "app.h"
 
 /***************************************************************************************************
 **    definitions
@@ -40,7 +39,7 @@ static bool HW_initialized = false;
 
 uint32_t BENCHMARK_MS_to_Ticks(uint32_t ms)
 {
-    return (ms * BENCHMARK_TIMER_FREQUENCY) / 1000U;
+    return ms * (BENCHMARK_TIMER_FREQUENCY / 1000U);
 }
 
 void BENCHMARK_hardware_init(void)
@@ -53,24 +52,40 @@ void BENCHMARK_signal_measurement_start(void)
 {
     assert(HW_initialized == true);
     const uint32_t signalize_event_duration_ticks = BENCHMARK_MS_to_Ticks(TEST_SIGNALING_EVNT_DURATION);
+    BENCHMARK_reset_counter();
+    volatile uint32_t counter = BENCHMARK_get_counter_value();
     LED_BLUE_TOGGLE();
-    for (uint32_t i = 0; i < signalize_event_duration_ticks; i++)
+    while (BENCHMARK_get_counter_value() - counter < signalize_event_duration_ticks)
     {
         __NOP();
     }
+
+    counter = BENCHMARK_get_counter_value();
     LED_BLUE_TOGGLE();
+    while (BENCHMARK_get_counter_value() - counter < signalize_event_duration_ticks)
+    {
+        __NOP();
+    }
 }
 
 void BENCHMARK_signal_measurement_stop(void)
 {
     assert(HW_initialized == true);
     const uint32_t signalize_event_duration_ticks = BENCHMARK_MS_to_Ticks(TEST_SIGNALING_EVNT_DURATION);
-    LED_BLUE_TOGGLE();
-    for (uint32_t i = 0; i < signalize_event_duration_ticks; i++)
+    BENCHMARK_reset_counter();
+    volatile uint32_t counter = BENCHMARK_get_counter_value();
+    LED_GREEN_TOGGLE();
+    while (BENCHMARK_get_counter_value() - counter < signalize_event_duration_ticks)
     {
         __NOP();
     }
-    LED_BLUE_TOGGLE();
+
+    counter = BENCHMARK_get_counter_value();
+    LED_GREEN_TOGGLE();
+    while (BENCHMARK_get_counter_value() - counter < signalize_event_duration_ticks)
+    {
+        __NOP();
+    }
 }
 
 void BENCHMARK_signal_jitter_detected(uint32_t *array, size_t size)
@@ -78,10 +93,12 @@ void BENCHMARK_signal_jitter_detected(uint32_t *array, size_t size)
     (void) array;
     (void) size;
     assert(HW_initialized == true);
+    const uint32_t signalize_event_duration_ticks = BENCHMARK_MS_to_Ticks(TEST_SIGNALING_EVNT_DURATION);
+    BENCHMARK_reset_counter();
+    volatile uint32_t counter = BENCHMARK_get_counter_value();
 
     LED_RED_TOGGLE();
-    const uint32_t signalize_event_duration_ticks = BENCHMARK_MS_to_Ticks(TEST_SIGNALING_EVNT_DURATION);
-    for (uint32_t i = 0; i < signalize_event_duration_ticks; i++)
+    while (BENCHMARK_get_counter_value() - counter < signalize_event_duration_ticks)
     {
         __NOP();
     }
