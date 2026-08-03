@@ -17,7 +17,6 @@
 ***************************************************************************************************/
 
 #include "benchmark_common.h"
-#include "cm33_core.h"
 
 /***************************************************************************************************
 **    definitions
@@ -100,7 +99,7 @@ static uint32_t BENCHMARK_findCoreSightComponent(uint32_t devtype, uint32_t arch
 **    code
 ***************************************************************************************************/
 
-static void BENCHMARK_assertNeededComponents(void)
+void BENCHMARK_assertNeededComponents(void)
 {
     /* --- required for the measurement itself ------------------------------------------------- */
     assert((DWT->CTRL & DWT_CTRL_NOCYCCNT_Msk) == 0u);  /* cycle counter is implemented           */
@@ -165,13 +164,8 @@ static uint32_t BENCHMARK_findCoreSightComponent(uint32_t devtype, uint32_t arch
     NOTE: all of this is compiled out when NDEBUG is defined - keep asserts enabled for the
     benchmark build, otherwise these preconditions are silently unchecked.
 */
-static void BENCHMARK_assertQuietSystem(void)
+void BENCHMARK_assertQuietSystem(void)
 {
-    if (g_WarmUp == false)
-    {
-        BENCHMARK_systemWarmup();
-        BENCHMARK_assertNeededComponents();
-    }
     /* --- DWT: everything except CYCCNT must be off ------------------------------------------- */
     assert((DWT->CTRL & DWT_CTRL_PCSAMPLENA_Msk) == 0u);  /* PC sampling off      */
     assert((DWT->CTRL & DWT_CTRL_EXCTRCENA_Msk) == 0u);   /* exception trace off  */
