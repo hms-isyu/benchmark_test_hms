@@ -27,7 +27,7 @@
 **    definitions
 ***************************************************************************************************/
 
-#define TASK_MUST_RETURN true
+#define TASK_MUST_RETURN false
 
 #define BENCHMARK_TIMER_FREQUENCY (SystemCoreClock) /* in MHz */
 
