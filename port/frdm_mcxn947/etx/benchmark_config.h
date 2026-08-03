@@ -22,6 +22,12 @@
 
 #include "stdbool.h"
 
+#if defined(__CORTEX_M)
+#include "core_cm33.h"
+#else
+#error "Unsupported core architecture. This benchmark is intended for specific architectures."
+#endif
+
 /***************************************************************************************************
 **    definitions
 ***************************************************************************************************/

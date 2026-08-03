@@ -23,11 +23,7 @@
 #include "stdint.h"
 #include "stddef.h"
 
-#ifdef __CORTEX_M
-#include "core_cm33.h"
-#else
-#error "Unsupported core architecture. This benchmark is intended for specific architectures."
-#endif
+#include "benchmark_config.h"
 
 /***************************************************************************************************
 **    definitions
