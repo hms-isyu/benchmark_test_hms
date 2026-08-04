@@ -99,13 +99,22 @@ static uint32_t BENCHMARK_findCoreSightComponent(uint32_t devtype, uint32_t arch
 **    code
 ***************************************************************************************************/
 
+__attribute__((noreturn)) void BENCHMARK_haltOnFailedPrecondition(void)
+{
+    __disable_irq();
+    for (;;)
+    {
+        __NOP();
+    }
+}
+
 void BENCHMARK_assertNeededComponents(void)
 {
     /* --- required for the measurement itself ------------------------------------------------- */
-    assert((DWT->CTRL & DWT_CTRL_NOCYCCNT_Msk) == 0u);  /* cycle counter is implemented           */
-    assert((DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk) != 0u); /* cycle counter is running               */
-    assert((DWT->CTRL & DWT_CTRL_CYCDISS_Msk) == 0u);   /* cycle counter not inhibited            */
-    assert((DCB->DEMCR & DCB_DEMCR_TRCENA_Msk) != 0u);  /* DWT is clocked/accessible              */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_NOCYCCNT_Msk) == 0u);  /* cycle counter is implemented           */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk) != 0u); /* cycle counter is running               */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_CYCDISS_Msk) == 0u);   /* cycle counter not inhibited            */
+    BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_TRCENA_Msk) != 0u);  /* DWT is clocked/accessible              */
 }
 
 /*
@@ -167,19 +176,19 @@ static uint32_t BENCHMARK_findCoreSightComponent(uint32_t devtype, uint32_t arch
 void BENCHMARK_assertQuietSystem(void)
 {
     /* --- DWT: everything except CYCCNT must be off ------------------------------------------- */
-    assert((DWT->CTRL & DWT_CTRL_PCSAMPLENA_Msk) == 0u);  /* PC sampling off      */
-    assert((DWT->CTRL & DWT_CTRL_EXCTRCENA_Msk) == 0u);   /* exception trace off  */
-    assert((DWT->CTRL & DWT_CTRL_SLEEPEVTENA_Msk) == 0u); /* sleep event trace off */
-    assert((DWT->CTRL & DWT_CTRL_CPIEVTENA_Msk) == 0u);   /* cycle count event trace off */
-    assert((DWT->CTRL & DWT_CTRL_EXCEVTENA_Msk) == 0u);   /* exception event trace off */
-    assert((DWT->CTRL & DWT_CTRL_CYCEVTENA_Msk) == 0u);   /* cycle count event trace off */
-    assert((DWT->CTRL & DWT_CTRL_LSUEVTENA_Msk) == 0u);   /* LSU event trace off */
-    assert((DWT->CTRL & DWT_CTRL_FOLDEVTENA_Msk) == 0u);  /* fold event trace off */
-    assert((DWT->CTRL & DWT_CTRL_SYNCTAP_Msk) == 0u);     /* sync tap off */
-    assert((DWT->CTRL & DWT_CTRL_CYCTAP_Msk) == 0u);      /* cycle tap off (PC/data sample rate) */
-    assert((DWT->CTRL & DWT_CTRL_POSTINIT_Msk) == 0u);    /* post init off */
-    assert((DWT->CTRL & DWT_CTRL_POSTPRESET_Msk) == 0u);  /* post preset off */
-    assert((DWT->CTRL & ~DWT_CTRL_ALLOWED_MASK) == 0u);   /* and nothing else, incl. future bits */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_PCSAMPLENA_Msk) == 0u);  /* PC sampling off      */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_EXCTRCENA_Msk) == 0u);   /* exception trace off  */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_SLEEPEVTENA_Msk) == 0u); /* sleep event trace off */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_CPIEVTENA_Msk) == 0u);   /* cycle count event trace off */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_EXCEVTENA_Msk) == 0u);   /* exception event trace off */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_CYCEVTENA_Msk) == 0u);   /* cycle count event trace off */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_LSUEVTENA_Msk) == 0u);   /* LSU event trace off */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_FOLDEVTENA_Msk) == 0u);  /* fold event trace off */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_SYNCTAP_Msk) == 0u);     /* sync tap off */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_CYCTAP_Msk) == 0u);      /* cycle tap off (PC/data sample rate) */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_POSTINIT_Msk) == 0u);    /* post init off */
+    BENCHMARK_ASSERT((DWT->CTRL & DWT_CTRL_POSTPRESET_Msk) == 0u);  /* post preset off */
+    BENCHMARK_ASSERT((DWT->CTRL & ~DWT_CTRL_ALLOWED_MASK) == 0u);   /* and nothing else, incl. future bits */
 
     /*
         No comparator armed. MATCH == 0 disables a comparator outright, which kills every path out
@@ -192,18 +201,18 @@ void BENCHMARK_assertQuietSystem(void)
     for (uint32_t i = 0U; i < dwt_numcomp; i++)
     {
         const volatile uint32_t *const function = (const volatile uint32_t *) (DWT_BASE + 0x028U + (0x010U * i));
-        assert((*function & (DWT_FUNCTION_MATCH_Msk | DWT_FUNCTION_ACTION_Msk)) == 0u);
+        BENCHMARK_ASSERT((*function & (DWT_FUNCTION_MATCH_Msk | DWT_FUNCTION_ACTION_Msk)) == 0u);
     }
 
     /* --- ITM/SWO: no stimulus, no timestamps, no processor stalling -------------------------- */
-    assert((ITM->TCR & ITM_TCR_ITMENA_Msk) == 0u);   /* ITM disabled         */
-    assert((ITM->TCR & ITM_TCR_STALLENA_Msk) == 0u); /* no core stall to deliver trace */
-    assert((ITM->TCR & ITM_TCR_TSENA_Msk) == 0u);    /* local timestamps off */
-    assert((ITM->TCR & ITM_TCR_GTSFREQ_Msk) == 0u);  /* global timestamps off */
-    assert((ITM->TCR & ITM_TCR_SYNCENA_Msk) == 0u);  /* sync packets off */
-    assert((ITM->TCR & ITM_TCR_DWTENA_Msk) == 0u);   /* DWT->ITM forwarding off */
-    assert((ITM->TCR & ITM_TCR_SWOENA_Msk) == 0u);   /* SWO timestamp clock off */
-    assert(ITM->TER == 0u);                          /* no stimulus port enabled (ITM printf) */
+    BENCHMARK_ASSERT((ITM->TCR & ITM_TCR_ITMENA_Msk) == 0u);   /* ITM disabled         */
+    BENCHMARK_ASSERT((ITM->TCR & ITM_TCR_STALLENA_Msk) == 0u); /* no core stall to deliver trace */
+    BENCHMARK_ASSERT((ITM->TCR & ITM_TCR_TSENA_Msk) == 0u);    /* local timestamps off */
+    BENCHMARK_ASSERT((ITM->TCR & ITM_TCR_GTSFREQ_Msk) == 0u);  /* global timestamps off */
+    BENCHMARK_ASSERT((ITM->TCR & ITM_TCR_SYNCENA_Msk) == 0u);  /* sync packets off */
+    BENCHMARK_ASSERT((ITM->TCR & ITM_TCR_DWTENA_Msk) == 0u);   /* DWT->ITM forwarding off */
+    BENCHMARK_ASSERT((ITM->TCR & ITM_TCR_SWOENA_Msk) == 0u);   /* SWO timestamp clock off */
+    BENCHMARK_ASSERT(ITM->TER == 0u);                          /* no stimulus port enabled (ITM printf) */
 
     /* --- ETM: the only unit that can stall the core for trace --------------------------------- */
     /*
@@ -216,34 +225,36 @@ void BENCHMARK_assertQuietSystem(void)
     {
         if ((ETM_REG_AT(etm_base, ETM_TRCPDSR_OFFSET) & ETM_TRCPDSR_POWER_MASK) != 0u)
         {
-            assert((ETM_REG_AT(etm_base, ETM_TRCPRGCTLR_OFFSET) & ETM_TRCPRGCTLR_EN_MASK) == 0u); /* not programmed */
-            assert((ETM_REG_AT(etm_base, ETM_TRCSTATR_OFFSET) & ETM_TRCSTATR_IDLE_MASK) != 0u);   /* confirmed idle */
-            assert(ETM_REG_AT(etm_base, ETM_TRCSTALLCTLR_OFFSET) == 0u); /* no ISTALL/DSTALL back-pressure */
+            BENCHMARK_ASSERT((ETM_REG_AT(etm_base, ETM_TRCPRGCTLR_OFFSET) & ETM_TRCPRGCTLR_EN_MASK)
+                             == 0u); /* not programmed */
+            BENCHMARK_ASSERT((ETM_REG_AT(etm_base, ETM_TRCSTATR_OFFSET) & ETM_TRCSTATR_IDLE_MASK)
+                             != 0u);                                               /* confirmed idle */
+            BENCHMARK_ASSERT(ETM_REG_AT(etm_base, ETM_TRCSTALLCTLR_OFFSET) == 0u); /* no ISTALL/DSTALL back-pressure */
         }
     }
 
     /* --- DebugMonitor exception and vector catch --------------------------------------------- */
-    assert((DCB->DEMCR & DCB_DEMCR_MON_EN_Msk) == 0u);       /* DebugMonitor exception off */
-    assert((DCB->DEMCR & DCB_DEMCR_UMON_EN_Msk) == 0u);      /* unprivileged DebugMonitor off */
-    assert((DCB->DEMCR & DCB_DEMCR_MON_PEND_Msk) == 0u);     /* no pending DebugMonitor */
-    assert((DCB->DEMCR & DCB_DEMCR_MON_REQ_Msk) == 0u);      /* no DebugMonitor request */
-    assert((DCB->DEMCR & DCB_DEMCR_MON_STEP_Msk) == 0u);     /* monitor single step off */
-    assert((DCB->DEMCR & DCB_DEMCR_VC_CORERESET_Msk) == 0u); /* vector catch: reset */
-    // assert((DCB->DEMCR & DCB_DEMCR_VC_MMERR_Msk) == 0u);   /* vector catch: MemManage */
-    // assert((DCB->DEMCR & DCB_DEMCR_VC_NOCPERR_Msk) == 0u); /* vector catch: NOCP */
-    // assert((DCB->DEMCR & DCB_DEMCR_VC_CHKERR_Msk) == 0u);  /* vector catch: check error */
-    // assert((DCB->DEMCR & DCB_DEMCR_VC_STATERR_Msk) == 0u); /* vector catch: state error */
-    // assert((DCB->DEMCR & DCB_DEMCR_VC_BUSERR_Msk) == 0u);  /* vector catch: BusFault */
-    // assert((DCB->DEMCR & DCB_DEMCR_VC_INTERR_Msk) == 0u);  /* vector catch: interrupt error */
-    // assert((DCB->DEMCR & DCB_DEMCR_VC_HARDERR_Msk) == 0u); /* vector catch: HardFault */
-    // assert((DCB->DEMCR & DCB_DEMCR_VC_SFERR_Msk) == 0u);   /* vector catch: SecureFault */
-    // assert((DCB->DEMCR & ~DCB_DEMCR_ALLOWED_MASK) == 0u);  /* and nothing else but TRCENA */
+    BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_MON_EN_Msk) == 0u);       /* DebugMonitor exception off */
+    BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_UMON_EN_Msk) == 0u);      /* unprivileged DebugMonitor off */
+    BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_MON_PEND_Msk) == 0u);     /* no pending DebugMonitor */
+    BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_MON_REQ_Msk) == 0u);      /* no DebugMonitor request */
+    BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_MON_STEP_Msk) == 0u);     /* monitor single step off */
+    BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_VC_CORERESET_Msk) == 0u); /* vector catch: reset */
+    // BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_VC_MMERR_Msk) == 0u);   /* vector catch: MemManage */
+    // BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_VC_NOCPERR_Msk) == 0u); /* vector catch: NOCP */
+    // BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_VC_CHKERR_Msk) == 0u);  /* vector catch: check error */
+    // BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_VC_STATERR_Msk) == 0u); /* vector catch: state error */
+    // BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_VC_BUSERR_Msk) == 0u);  /* vector catch: BusFault */
+    // BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_VC_INTERR_Msk) == 0u);  /* vector catch: interrupt error */
+    // BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_VC_HARDERR_Msk) == 0u); /* vector catch: HardFault */
+    // BENCHMARK_ASSERT((DCB->DEMCR & DCB_DEMCR_VC_SFERR_Msk) == 0u);   /* vector catch: SecureFault */
+    // BENCHMARK_ASSERT((DCB->DEMCR & ~DCB_DEMCR_ALLOWED_MASK) == 0u);  /* and nothing else but TRCENA */
 
     /* --- halting debug: attached is fine, intrusive modes are not ---------------------------- */
-    // assert((DCB->DHCSR & DCB_DHCSR_C_HALT_Msk) == 0u);      /* not halt-requested */
-    // assert((DCB->DHCSR & DCB_DHCSR_C_STEP_Msk) == 0u);      /* single step off */
-    // assert((DCB->DHCSR & DCB_DHCSR_C_MASKINTS_Msk) == 0u);  /* debugger not masking interrupts */
-    // assert((DCB->DHCSR & DCB_DHCSR_C_SNAPSTALL_Msk) == 0u); /* no imprecise-halt stall */
+    // BENCHMARK_ASSERT((DCB->DHCSR & DCB_DHCSR_C_HALT_Msk) == 0u);      /* not halt-requested */
+    // BENCHMARK_ASSERT((DCB->DHCSR & DCB_DHCSR_C_STEP_Msk) == 0u);      /* single step off */
+    // BENCHMARK_ASSERT((DCB->DHCSR & DCB_DHCSR_C_MASKINTS_Msk) == 0u);  /* debugger not masking interrupts */
+    // BENCHMARK_ASSERT((DCB->DHCSR & DCB_DHCSR_C_SNAPSTALL_Msk) == 0u); /* no imprecise-halt stall */
     /*
         Opt-in: an armed FPB comparator only costs cycles when it is hit, but a breakpoint inside
         the measured region silently invalidates the run. Enable this for unattended reference runs;
@@ -260,16 +271,16 @@ void BENCHMARK_assertQuietSystem(void)
         }
         for (uint32_t i = 0U; i < fp_numcode; i++)
         {
-            assert((BENCHMARK_FPB->COMP[i] & FPB_COMP_BE_MASK) == 0u); /* no hardware breakpoint set */
+            BENCHMARK_ASSERT((BENCHMARK_FPB->COMP[i] & FPB_COMP_BE_MASK) == 0u); /* no hardware breakpoint set */
         }
     }
 
     /* --- SoC-level noise sources ------------------------------------------------------------- */
-    assert(SYSCON0->ECC_ENABLE_CTRL == 0u);                                  /* RAM ECC off       */
-    assert((SYSCON0->CPUCTRL & SYSCON_CPUCTRL_CPU1RSTEN_MASK) != 0u);        /* CPU1 in reset     */
-    assert((SYSCON0->AHBCLKCTRL0 & SYSCON_AHBCLKCTRL0_DMA0_MASK) == 0u);     /* eDMA0 clock gated */
-    assert((SYSCON0->AHBCLKCTRL1 & SYSCON_AHBCLKCTRL1_SmartDMA_MASK) == 0u); /* SmartDMA clock gated */
-    assert((SYSCON0->AHBCLKCTRL2 & SYSCON_AHBCLKCTRL2_DMA1_MASK) == 0u);     /* eDMA1 clock gated */
-    assert((CMX_PERFMON0->PMCR[0].PMCR & SYSPM_PMCR_SSC_MASK) == 0u);
-    assert((SYSCON->LPCAC_CTRL & SYSCON_LPCAC_CTRL_DIS_LPCAC_MASK) != 0u); /* LPCAC disabled */
+    BENCHMARK_ASSERT(SYSCON0->ECC_ENABLE_CTRL == 0u);                                  /* RAM ECC off       */
+    BENCHMARK_ASSERT((SYSCON0->CPUCTRL & SYSCON_CPUCTRL_CPU1RSTEN_MASK) != 0u);        /* CPU1 in reset     */
+    BENCHMARK_ASSERT((SYSCON0->AHBCLKCTRL0 & SYSCON_AHBCLKCTRL0_DMA0_MASK) == 0u);     /* eDMA0 clock gated */
+    BENCHMARK_ASSERT((SYSCON0->AHBCLKCTRL1 & SYSCON_AHBCLKCTRL1_SmartDMA_MASK) == 0u); /* SmartDMA clock gated */
+    BENCHMARK_ASSERT((SYSCON0->AHBCLKCTRL2 & SYSCON_AHBCLKCTRL2_DMA1_MASK) == 0u);     /* eDMA1 clock gated */
+    BENCHMARK_ASSERT((CMX_PERFMON0->PMCR[0].PMCR & SYSPM_PMCR_SSC_MASK) == 0u);
+    BENCHMARK_ASSERT((SYSCON->LPCAC_CTRL & SYSCON_LPCAC_CTRL_DIS_LPCAC_MASK) != 0u); /* LPCAC disabled */
 }

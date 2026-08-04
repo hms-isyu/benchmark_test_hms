@@ -56,22 +56,22 @@ void BENCHMARK_hardware_init(void)
 {
     /*done by board early init hook just check*/
 
-    assert(gpio_is_ready_dt(&led0));
-    assert(gpio_is_ready_dt(&led1));
-    assert(gpio_is_ready_dt(&led2));
+    BENCHMARK_ASSERT(gpio_is_ready_dt(&led0));
+    BENCHMARK_ASSERT(gpio_is_ready_dt(&led1));
+    BENCHMARK_ASSERT(gpio_is_ready_dt(&led2));
     int ret = gpio_pin_configure_dt(&led0, GPIO_OUTPUT_INACTIVE);
-    assert(ret == 0);
+    BENCHMARK_ASSERT(ret == 0);
     ret = gpio_pin_configure_dt(&led1, GPIO_OUTPUT_INACTIVE);
-    assert(ret == 0);
+    BENCHMARK_ASSERT(ret == 0);
     ret = gpio_pin_configure_dt(&led2, GPIO_OUTPUT_INACTIVE);
-    assert(ret == 0);
+    BENCHMARK_ASSERT(ret == 0);
 
     HW_initialized = true;
 }
 
 void BENCHMARK_signal_measurement_start(void)
 {
-    assert(HW_initialized == true);
+    BENCHMARK_ASSERT(HW_initialized == true);
     const uint32_t signalize_event_duration_ticks = BENCHMARK_MS_to_Ticks(TEST_SIGNALING_EVNT_DURATION);
     BENCHMARK_reset_counter();
     volatile uint32_t counter = BENCHMARK_get_counter_value();
@@ -91,7 +91,7 @@ void BENCHMARK_signal_measurement_start(void)
 
 void BENCHMARK_signal_measurement_stop(void)
 {
-    assert(HW_initialized == true);
+    BENCHMARK_ASSERT(HW_initialized == true);
     const uint32_t signalize_event_duration_ticks = BENCHMARK_MS_to_Ticks(TEST_SIGNALING_EVNT_DURATION);
     BENCHMARK_reset_counter();
     volatile uint32_t counter = BENCHMARK_get_counter_value();
@@ -113,7 +113,7 @@ void BENCHMARK_signal_jitter_detected(uint32_t *array, size_t size)
 {
     (void) array;
     (void) size;
-    assert(HW_initialized == true);
+    BENCHMARK_ASSERT(HW_initialized == true);
     const uint32_t signalize_event_duration_ticks = BENCHMARK_MS_to_Ticks(TEST_SIGNALING_EVNT_DURATION);
     BENCHMARK_reset_counter();
     volatile uint32_t counter = BENCHMARK_get_counter_value();
@@ -124,4 +124,14 @@ void BENCHMARK_signal_jitter_detected(uint32_t *array, size_t size)
         __NOP();
     }
     LED_RED_TOGGLE();
+}
+
+void Benchmark_disable_sys_tick(void)
+{
+    SysTick->CTRL &= ~SysTick_CTRL_TICKINT_Msk;
+}
+
+void Benchmark_enable_sys_tick(void)
+{
+    SysTick->CTRL |= SysTick_CTRL_TICKINT_Msk;
 }

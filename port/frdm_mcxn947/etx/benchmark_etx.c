@@ -50,7 +50,7 @@ void BENCHMARK_hardware_init(void)
 
 void BENCHMARK_signal_measurement_start(void)
 {
-    assert(HW_initialized == true);
+    BENCHMARK_ASSERT(HW_initialized == true);
     const uint32_t signalize_event_duration_ticks = BENCHMARK_MS_to_Ticks(TEST_SIGNALING_EVNT_DURATION);
     BENCHMARK_reset_counter();
     volatile uint32_t counter = BENCHMARK_get_counter_value();
@@ -70,7 +70,7 @@ void BENCHMARK_signal_measurement_start(void)
 
 void BENCHMARK_signal_measurement_stop(void)
 {
-    assert(HW_initialized == true);
+    BENCHMARK_ASSERT(HW_initialized == true);
     const uint32_t signalize_event_duration_ticks = BENCHMARK_MS_to_Ticks(TEST_SIGNALING_EVNT_DURATION);
     BENCHMARK_reset_counter();
     volatile uint32_t counter = BENCHMARK_get_counter_value();
@@ -92,7 +92,7 @@ void BENCHMARK_signal_jitter_detected(uint32_t *array, size_t size)
 {
     (void) array;
     (void) size;
-    assert(HW_initialized == true);
+    BENCHMARK_ASSERT(HW_initialized == true);
     const uint32_t signalize_event_duration_ticks = BENCHMARK_MS_to_Ticks(TEST_SIGNALING_EVNT_DURATION);
     BENCHMARK_reset_counter();
     volatile uint32_t counter = BENCHMARK_get_counter_value();
