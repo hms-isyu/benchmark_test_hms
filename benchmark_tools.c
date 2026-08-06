@@ -42,9 +42,6 @@ __attribute__((noinline, aligned(16))) static uint32_t BENCHMARK_measureEmptyLoo
     volatile uint32_t t0, t1;
     __DSB();
     __ISB();
-    __NOP();
-    __NOP();
-    __NOP();
     t0 = BENCHMARK_get_counter_value(); /* no reset */
     for (uint32_t i = 0; i < loop_count; i++)
     {
