@@ -72,8 +72,8 @@ bool BENCHMARK_calc_overhead(uint32_t loop_count, uint32_t *loop_overhead, uint3
     if (g_WarmUp == false)
     {
         BENCHMARK_assertQuietSystem();
-        BENCHMARK_systemWarmup();
         BENCHMARK_assertNeededComponents();
+        BENCHMARK_systemWarmup();
     }
     volatile uint32_t loop_oh_1 = 0U;
     volatile uint32_t loop_oh_2 = 0U;
@@ -99,11 +99,6 @@ bool BENCHMARK_calc_overhead(uint32_t loop_count, uint32_t *loop_overhead, uint3
     }
 
     BENCHMARK_reset_counter();
-
-    for (uint32_t i = 0; i < 10; i++)
-    {
-        __NOP();
-    }
 
     loop_oh_1 = BENCHMARK_measureEmptyLoop(loop_count);
     loop_oh_2 = BENCHMARK_measureEmptyLoop(loop_count);
