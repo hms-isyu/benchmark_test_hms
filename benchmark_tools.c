@@ -40,11 +40,10 @@ static uint32_t BENCHMARK_measureEmptyLoop(uint32_t loop_count);
 __attribute__((noinline, aligned(16))) static uint32_t BENCHMARK_measureEmptyLoop(uint32_t loop_count)
 {
     volatile uint32_t t0, t1;
-    __DSB();
-    __ISB();
-    t0 = BENCHMARK_get_counter_value(); /* no reset */
+    BENCHMARK_GET_START_TIME(t0);
     for (uint32_t i = 0; i < loop_count; i++)
     {
+        __ASM volatile("" ::: "memory");
     }
     t1 = BENCHMARK_get_counter_value();
     return t1 - t0;
@@ -75,27 +74,39 @@ bool BENCHMARK_calc_overhead(uint32_t loop_count, uint32_t *loop_overhead, uint3
         BENCHMARK_assertNeededComponents();
         BENCHMARK_systemWarmup();
     }
-    volatile uint32_t loop_oh_1 = 0U;
-    volatile uint32_t loop_oh_2 = 0U;
-    volatile uint32_t t0        = 0;
-    volatile uint32_t t1        = 0;
+    volatile uint32_t loop_oh_1  = 0U;
+    volatile uint32_t loop_oh_2  = 0U;
+    volatile uint32_t t0         = 0;
+    volatile uint32_t t1         = 0;
+    uint32_t          dwt_oh     = 0;
+    uint32_t          dwt_oh_min = UINT32_MAX;
+    uint32_t          dwt_oh_max = 0U;
 
-    __DSB();
-    __ISB();
-    t0                          = BENCHMARK_get_counter_value();
-    t1                          = BENCHMARK_get_counter_value();
+    BENCHMARK_GET_START_TIME(t0);
+    BENCHMARK_GET_STOP_TIME(t1);
     *cyccnt_assignment_overhead = t1 - t0;
 
     __DSB();
     __ISB();
+#pragma GCC unroll 1
     for (uint32_t i = 0; i < loop_count; i++)
     {
-        t0 = BENCHMARK_get_counter_value();
-        t1 = BENCHMARK_get_counter_value();
-        if ((t1 - t0) != *cyccnt_assignment_overhead)
+        BENCHMARK_GET_START_TIME(t0);
+        BENCHMARK_GET_STOP_TIME(t1);
+        dwt_oh = t1 - t0;
+        if (dwt_oh < dwt_oh_min)
         {
-            BENCHMARK_signal_jitter_detected(NULL, 0U);
+            dwt_oh_min = dwt_oh;
         }
+        if (dwt_oh > dwt_oh_max)
+        {
+            dwt_oh_max = dwt_oh;
+        }
+    }
+    if (dwt_oh_min != dwt_oh_max)
+    {
+        BENCHMARK_signal_jitter_detected(NULL, 0U);
+        assert(true);
     }
 
     BENCHMARK_reset_counter();

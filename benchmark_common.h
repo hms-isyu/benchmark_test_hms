@@ -69,6 +69,24 @@ __attribute__((always_inline)) static inline void BENCHMARK_reset_counter(void)
 #endif
 }
 
+#define BENCHMARK_GET_START_TIME(t0_)                                                                                  \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        __DSB();                                                                                                       \
+        __ISB();                                                                                                       \
+        __ASM volatile("" ::: "memory");                                                                               \
+        (t0_) = BENCHMARK_get_counter_value();                                                                         \
+        __ASM volatile("" ::: "memory");                                                                               \
+    } while (0)
+
+#define BENCHMARK_GET_STOP_TIME(t1_)                                                                                   \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        __ASM volatile("" ::: "memory");                                                                               \
+        (t1_) = BENCHMARK_get_counter_value();                                                                         \
+        __ASM volatile("" ::: "memory");                                                                               \
+    } while (0)
+
 /***************************************************************************************************
 **    prototypes
 ***************************************************************************************************/
