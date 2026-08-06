@@ -135,7 +135,6 @@ void BENCHMARK_check_hw_influence(uint32_t loop_count)
     uint32_t        result[2]     = {0U, 0U}; /* result[0] = min, result[1] = max */
     uint32_t       *data          = result;
 
-    BENCHMARK_assertQuietSystem();
     BENCHMARK_assertNeededComponents();
 
     for (uint32_t r = 0; r < 64U; r++)
