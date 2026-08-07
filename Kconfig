@@ -1,0 +1,48 @@
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2026 HMS Industrial Networks GmbH & Co. KG
+# Author: Isaac L. L. Yuki 
+#
+
+config BMTH_ENABLE
+    bool "Enable HMS Benchmark Tool"
+    default n
+    help
+      Select this option to enable the HMS Benchmark Tool.
+
+config BMTH_EXTERN_PORT_LAYER
+    depends on BMTH_ENABLE
+    bool "External Port Layer"
+    default n
+    help
+      Select this option to enable an external port layer for the HMS Benchmark Tool. FIles must be put inside port/extern
+
+config BMTH_INTERNAL_PORT_LAYER
+    depends on BMTH_ENABLE
+    bool "Internal Port Layer"
+    default n
+    help
+      Select this option to enable an internal port layer for the HMS Benchmark Tool. FIles must be put inside the port/internal
+
+config BMTH_FRDM_MCXN947
+    depends on BMTH_ENABLE
+    select BMTH_INTERNAL_PORT_LAYER
+    bool "FRDM-MCXN947"
+    default n
+    help
+      Select this option to enable the FRDM-MCXN947 board support for the HMS Benchmark Tool.
+
+
+config BMTH_ZEPHYR
+    depends on BMTH_ENABLE && BMTH_INTERNAL_PORT_LAYER
+    bool "Zephyr"
+    default n
+    help
+      Select this option to enable Zephyr RTOS support for the HMS Benchmark Tool.
+
+config BMTH_ETX
+    depends on BMTH_ENABLE && BMTH_INTERNAL_PORT_LAYER
+    bool "ETX"
+    default n
+    help
+      Select this option to enable CMake build system support for the HMS Benchmark Tool.
