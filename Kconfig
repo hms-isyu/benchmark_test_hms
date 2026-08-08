@@ -10,6 +10,13 @@ config BMTH_ENABLE
     help
       Select this option to enable the HMS Benchmark Tool.
 
+config BMTH_GLOBAL_TIME_STORAGE
+    depends on BMTH_ENABLE
+    bool "Adds a app specific configuration through bmth.h"
+    default n
+    help
+      Use this in order to make user specific configs, such as enabling global time counter feature.
+
 config BMTH_EXTERN_PORT_LAYER
     depends on BMTH_ENABLE
     bool "External Port Layer"

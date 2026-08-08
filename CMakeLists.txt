@@ -20,6 +20,8 @@ enable_language(C ASM)
 
 add_library(bmth INTERFACE)
 
+# Include
+
 target_include_directories(bmth INTERFACE
     ${CURRENT_MODULE_PATH}
 )
@@ -61,4 +63,12 @@ if(CONFIG_BMTH_FRDM_MCXN947)
     else()
         message(FATAL_ERROR "BMTH_FRDM_MCXN947 requires some port to be enabled")
     endif()
+endif()
+
+# Features
+
+# Note: This should normally be avoided, but because we have a very small
+# number of configurations, it is implemented this way.
+if(CONFIG_BMTH_GLOBAL_TIME_STORAGE)
+    target_compile_definitions(bmth INTERFACE -DBMTH_GLOBAL_TIME_STORAGE=1)
 endif()

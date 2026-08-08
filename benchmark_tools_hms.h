@@ -135,6 +135,14 @@ extern void BMTH_check_hw_influence(uint32_t loop_count);
 
 extern uint32_t BMTH_MS_to_Ticks(uint32_t ms);
 
+#if (defined(BMTH_GLOBAL_TIME_STORAGE) && (BMTH_GLOBAL_TIME_STORAGE == 1))
+extern void BMTH_global_start_time(BMTH_time_marker_t t0);
+
+extern void BMTH_global_stop_time(BMTH_time_marker_t t1);
+
+extern bool BMTH_global_get_time_difference(float *result);
+#endif
+
 /* Assert */
 
 extern void BMTH_assert_quiet_system(void);

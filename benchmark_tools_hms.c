@@ -37,6 +37,13 @@
 static bool g_WarmUp =
   false; /* flag to indicate if the system has been warmed up */
 
+#if (defined(BMTH_GLOBAL_TIME_STORAGE) && (BMTH_GLOBAL_TIME_STORAGE == 1))
+static BMTH_time_marker_t global_start_time  = 0U;
+static BMTH_time_marker_t global_stop_time   = 0U;
+static uint32_t           global_start_count = 0U;
+static uint32_t           global_stop_count  = 0U;
+#endif
+
 /*******************************************************************************
  * Prototypes
  ******************************************************************************/
@@ -73,6 +80,32 @@ static void BMTH_system_warmup(void)
     __NOP();
   }
 }
+
+#if (defined(BMTH_GLOBAL_TIME_STORAGE) && (BMTH_GLOBAL_TIME_STORAGE == 1))
+void BMTH_global_start_time(BMTH_time_marker_t t0)
+{
+  global_start_time += t0;
+  global_start_count++;
+}
+
+void BMTH_global_stop_time(BMTH_time_marker_t t1)
+{
+  global_stop_time += t1;
+  global_stop_count++;
+}
+
+bool BMTH_global_get_time_difference(float *result)
+{
+  if (global_stop_time != global_start_time)
+  {
+    return false;
+  }
+
+  *result = (global_stop_time - global_start_time) / global_start_count;
+
+  return true;
+}
+#endif
 
 bool BMTH_calc_overhead(uint32_t loop_count, uint32_t *loop_overhead,
                         uint32_t *cyccnt_assignment_overhead)
