@@ -1,3 +1,5 @@
+
+
 /******************************************************************************/
 /*!
  * \copyright
@@ -9,7 +11,7 @@
 
 /*!
  * \ingroup BMT_HMS
- * \brief Port layer for the benchmark.
+ * \brief Default config template for the benchmark.
  * @{
  * \file
  */
@@ -21,18 +23,14 @@
  * Includes
  ******************************************************************************/
 
-#include "core_cm33.h"
+#define BMTH_COUNTER_FREQUENCY 0U /* in MHz */
 
-/*******************************************************************************
- * Definitions
- ******************************************************************************/
-
-#define BMTH_TIMER_FREQUENCY (SystemCoreClock) /* in MHz */
-
-#ifdef __CORTEX_M
 #define BMTH_GET_COUNTER() DWT->CYCCNT
 #define BMTH_RESET_COUNTER() DWT->CYCCNT = 0U
-#endif /* __CORTEX_M */
+
+#define BMTH_SIGNALING_EVNT_DURATION (1000U)
+
+#define BMTH_GLOBAL_TIME_STORAGE (0U) /* 1: store global time, 0: do not store global time */
 
 #endif /* BMTH_CONFIG_H */
 

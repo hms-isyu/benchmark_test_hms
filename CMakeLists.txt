@@ -24,6 +24,7 @@ add_library(bmth INTERFACE)
 
 target_include_directories(bmth INTERFACE
     ${CURRENT_MODULE_PATH}
+    ${CURRENT_MODULE_PATH}/port
 )
 
 target_sources(bmth INTERFACE
@@ -33,42 +34,8 @@ target_sources(bmth INTERFACE
 target_link_directories(bmth INTERFACE
 )
 
-if(CONFIG_BMTH_EXTERN_PORT_LAYER)
-    target_include_directories(bmth INTERFACE
-        ${BMTH_PORT_PATH}/extern
-    )
-    target_sources(bmth INTERFACE
-        ${BMTH_PORT_PATH}/extern/bmth_port.c
-    )
-endif()
-
 if(CONFIG_BMTH_FRDM_MCXN947)
     target_sources(bmth INTERFACE
         ${CURRENT_MODULE_PATH}/cores/bmth_m33.c
     )
-    if(CONFIG_BMTH_ZEPHYR)
-        target_include_directories(bmth INTERFACE
-            ${BMTH_PORT_PATH}/frdm_mcxn947/zephyr
-        )
-        target_sources(bmth INTERFACE
-            ${BMTH_PORT_PATH}/frdm_mcxn947/zephyr/bmth_port.c
-        )
-    elseif(CONFIG_BMTH_ETX)
-        target_include_directories(bmth INTERFACE
-            ${BMTH_PORT_PATH}/frdm_mcxn947/etx
-        )
-        target_sources(bmth INTERFACE
-            ${BMTH_PORT_PATH}/frdm_mcxn947/etx/bmth_port.c
-        )
-    else()
-        message(FATAL_ERROR "BMTH_FRDM_MCXN947 requires some port to be enabled")
-    endif()
-endif()
-
-# Features
-
-# Note: This should normally be avoided, but because we have a very small
-# number of configurations, it is implemented this way.
-if(CONFIG_BMTH_GLOBAL_TIME_STORAGE)
-    target_compile_definitions(bmth INTERFACE -DBMTH_GLOBAL_TIME_STORAGE=1)
 endif()

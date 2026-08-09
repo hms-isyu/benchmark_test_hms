@@ -9,31 +9,36 @@
 
 /*!
  * \ingroup BMT_HMS
- * \brief Port layer for the benchmark.
+ * \brief User defined interfaces for the benchmark.
  * @{
  * \file
  */
 
-#ifndef BMTH_CONFIG_H
-#define BMTH_CONFIG_H
+#ifndef BMTH_PORT_H
+#define BMTH_PORT_H
 
 /*******************************************************************************
- * Includes
+ * Prototypes
  ******************************************************************************/
 
-#include "cmsis_core.h"
+/* Signalize */
 
-/*******************************************************************************
- * Definitions
- ******************************************************************************/
+extern void BMTH_toggle_signal_success(void);
 
-#define BMTH_TIMER_FREQUENCY (SystemCoreClock) /* in MHz */
+extern void BMTH_toggle_signal_failure(void);
 
-#ifdef __CORTEX_M
-#define BMTH_GET_COUNTER() DWT->CYCCNT
-#define BMTH_RESET_COUNTER() DWT->CYCCNT = 0U
-#endif /* __CORTEX_M */
+extern void BMTH_toggle_signal_event(void);
 
-#endif /* BMTH_CONFIG_H */
+/* Hardware */
+
+extern void BMTH_hardware_init(void);
+
+extern void BMTH_disable_sys_tick(void);
+
+extern void BMTH_enable_sys_tick(void);
+
+extern void BMTH_enable_counter(void);
+
+#endif /* BMTH_PORT_H */
 
 /*!@}*/

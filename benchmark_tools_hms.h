@@ -29,6 +29,7 @@
 #include "stddef.h"
 
 #include "bmth_config.h"
+#include "bmth_port.h"
 
 /*******************************************************************************
  * Defines
@@ -37,7 +38,19 @@
 typedef volatile uint32_t
   BMTH_time_marker_t; /* volatile to prevent compiler optimizations */
 
-#define TEST_SIGNALING_EVNT_DURATION (1000U) /* in ms */
+typedef struct BMTH_measurement_series_t
+{
+  uint32_t  values_accumulated;
+  uint32_t  last_value;
+  uint32_t *values_buffer;
+  size_t    values_buffer_size;
+  uint32_t  values_max;
+  uint32_t  values_min;
+  float     values_average;
+  uint32_t  values_outlier_count;
+  uint32_t  values_static_overhead;
+  uint32_t  iteration_count;
+} BMTH_measurement_series_t;
 
 __attribute__((always_inline)) static inline uint32_t BMTH_get_counter_value(
   void)
@@ -94,9 +107,9 @@ __attribute__((always_inline)) static inline void BMTH_reset_counter(void)
     __ASM volatile("" ::: "memory");                                           \
   } while (0)
 
-#define BMTH_SIGNAL_SUCCESS(void) BMTH_signal_success()
-#define BMTH_SIGNAL_FAILURE(void) BMTH_signal_failure()
-#define BMTH_SIGNAL_EVENT(void) BMTH_signal_event()
+#define BMTH_TOGGLE_SIGNAL_SUCCESS(void) BMTH_toggle_signal_success()
+#define BMTH_TOGGLE_SIGNAL_FAILURE(void) BMTH_toggle_signal_failure()
+#define BMTH_TOGGLE_SIGNAL_EVENT(void) BMTH_toggle_signal_event()
 
 /*******************************************************************************
  * Prototypes
@@ -104,36 +117,31 @@ __attribute__((always_inline)) static inline void BMTH_reset_counter(void)
 
 /* Signalize */
 
-extern void BMTH_signal_success(void);
+extern void BMTH_signalize_mseries_start(void);
 
-extern void BMTH_signal_failure(void);
+extern void BMTH_signalize_mseries_stop(bool success);
 
-extern void BMTH_signal_event(void);
-
-extern void BMTH_signal_measurement_start(void);
-
-extern void BMTH_signal_measurement_stop(bool success);
-
-extern void BMTH_signal_jitter_detected(uint32_t *array, size_t size);
-
-/* Hardware */
-
-extern void BMTH_hardware_init(void);
-
-extern void BMTH_disable_sys_tick(void);
-
-extern void BMTH_enable_sys_tick(void);
-
-extern void BMTH_enable_counter(void);
+extern void BMTH_signalize_jitter_detected(void);
 
 /* Tools */
 
-extern bool BMTH_calc_overhead(uint32_t loop_count, uint32_t *loop_overhead,
-                               uint32_t *cyccnt_assignment_overhead);
+/* Measurement series */
 
-extern void BMTH_check_hw_influence(uint32_t loop_count);
+extern bool BMTH_mseries_iterate(BMTH_measurement_series_t *mseries,
+                                 uint32_t t0, uint32_t t1);
 
-extern uint32_t BMTH_MS_to_Ticks(uint32_t ms);
+extern void BMTH_mseries_set_static_overhead(BMTH_measurement_series_t *mseries,
+                                             uint32_t                   oh);
+
+/* Measurement */
+
+extern bool BMTH_get_counter_overhead(uint32_t *cyccnt_assignment_overhead,
+                                      uint32_t  iterations);
+
+extern void BMTH_check_hw_influence(uint32_t                   loop_count,
+                                    BMTH_measurement_series_t *mseries);
+
+/* Global Time Storage */
 
 #if (defined(BMTH_GLOBAL_TIME_STORAGE) && (BMTH_GLOBAL_TIME_STORAGE == 1))
 extern void BMTH_global_start_time(BMTH_time_marker_t t0);
@@ -142,6 +150,10 @@ extern void BMTH_global_stop_time(BMTH_time_marker_t t1);
 
 extern bool BMTH_global_get_time_difference(float *result);
 #endif
+
+/* Helper */
+
+extern uint32_t BMTH_MS_to_Ticks(uint32_t ms);
 
 /* Assert */
 
