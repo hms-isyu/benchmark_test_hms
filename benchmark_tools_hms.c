@@ -92,37 +92,55 @@ void BMTH_global_deactivate(void)
   global_activated = false;
 }
 
-void BMTH_global_start_time(BMTH_time_marker_t t0)
+__attribute__((noinline)) void BMTH_set_global_start_time(BMTH_time_marker_t t0)
 {
   if (!global_activated)
   {
     return;
   }
-  global_start_time += t0;
+  global_start_time = t0;
   global_start_count++;
 }
 
-void BMTH_global_stop_time(BMTH_time_marker_t t1)
+uint32_t BMTH_get_global_start_time_function_overhead(void)
+{
+  BMTH_time_marker_t t1        = 0U;
+  BMTH_time_marker_t t0        = 0U;
+  BMTH_time_marker_t calibrate = 0U;
+  BMTH_global_activate();
+
+  BMTH_RESET_COUNTER();
+
+  BMTH_GET_START_TIME(t0);
+  BMTH_set_global_start_time(calibrate);
+  BMTH_GET_STOP_TIME(t1);
+
+  global_start_count--;
+
+  BMTH_global_deactivate();
+  return (t1 - t0);
+}
+
+__attribute__((noinline)) void BMTH_set_global_stop_time(BMTH_time_marker_t t1)
 {
   if (!global_activated)
   {
     return;
   }
-  global_stop_time += t1;
+  global_stop_time = t1;
   global_stop_count++;
 }
 
-bool BMTH_global_get_time_difference(float *result)
+uint32_t BMTH_get_global_start_time(void)
 {
-  if (global_stop_count != global_start_count)
-  {
-    return false;
-  }
-
-  *result = (global_stop_time - global_start_time) / global_start_count;
-
-  return true;
+  return global_start_time;
 }
+
+uint32_t BMTH_get_global_stop_time(void)
+{
+  return global_stop_time;
+}
+
 #endif
 
 bool BMTH_get_counter_overhead(uint32_t *cyccnt_assignment_overhead,
@@ -172,8 +190,8 @@ bool BMTH_mseries_iterate(BMTH_measurement_series_t *mseries, uint32_t t0,
 {
   bool no_jitter = true;
   t1             = t1 - t0;
-  t1             = t1 - mseries->values_static_overhead;
   BMTH_ASSERT(t1 > mseries->values_static_overhead);
+  t1 = t1 - mseries->values_static_overhead;
 
   if (mseries->values_buffer_size == 0)
   {

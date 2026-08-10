@@ -144,11 +144,17 @@ extern void BMTH_check_hw_influence(uint32_t                   loop_count,
 /* Global Time Storage */
 
 #if (defined(BMTH_GLOBAL_TIME_STORAGE) && (BMTH_GLOBAL_TIME_STORAGE == 1))
-extern void BMTH_global_start_time(BMTH_time_marker_t t0);
+extern __attribute__((noinline)) void BMTH_set_global_start_time(
+  BMTH_time_marker_t t0);
 
-extern void BMTH_global_stop_time(BMTH_time_marker_t t1);
+extern __attribute__((noinline)) void BMTH_set_global_stop_time(
+  BMTH_time_marker_t t1);
 
-extern bool BMTH_global_get_time_difference(float *result);
+extern uint32_t BMTH_get_global_start_time(void);
+
+extern uint32_t BMTH_get_global_stop_time(void);
+
+extern uint32_t BMTH_get_global_start_time_function_overhead(void);
 
 extern void BMTH_global_activate(void);
 
