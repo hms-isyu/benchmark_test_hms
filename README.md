@@ -102,12 +102,15 @@ optimisation levels, compiler versions and unrelated edits to the same function.
 The following rules keep every read site the same shape, so that the calibrated
 overhead measured once applies everywhere.
 
-1. **Time markers are `static`, never locals.** A `static` is observable outside
-   the function, so the compiler must write it to memory and the sequence is
-   always *load base → read counter → store*. A local may be held in a register
-   with the store elided entirely, depending on register pressure elsewhere in
-   the function, and the read then costs less. Statics are not cheaper; they are
-   deterministic.
+1. **Time markers are declared `static` at file scope.** Not as locals, and not as
+   function-scope statics — all three produce different windows. A local may be
+   held in a register with the store elided entirely, depending on register
+   pressure elsewhere in the function, and the read then costs less; a variable
+   with static storage duration must be written to memory, so the sequence is
+   always *load base → read counter → store*. Statics are not cheaper; they are
+   deterministic. That a function-scope `static` differs from a file-scope one
+   was observed on this project's code; the mechanism was not investigated, so
+   use file scope, which is the form the calibration is known to match.
 
 2. **Touch each marker exactly once inside a window.** A second access invites
    common-subexpression elimination and address reuse, and the sequence differs
