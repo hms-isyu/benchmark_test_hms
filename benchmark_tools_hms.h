@@ -27,6 +27,7 @@
 
 #include "stdint.h"
 #include "stddef.h"
+#include "stdbool.h"
 
 #include "bmth_config.h"
 #include "bmth_port.h"
@@ -37,6 +38,14 @@
 
 typedef volatile uint32_t
   BMTH_time_marker_t; /* volatile to prevent compiler optimizations */
+
+typedef enum BMTH_measurement_read_window_t
+{
+  BMTH_MEASUREMENT_READ_WINDOW_CROSS_FUNCTIONS_FILE_SCOPE_VARS,
+  BMTH_MEASUREMENT_READ_WINDOW_INSIDE_FUNCTION_FILE_SCOPE_VARS,
+  BMTH_MEASUREMENT_READ_WINDOW_INSIDE_FUNCTION_FUNCTION_SCOPE_VARS,
+  BMTH_MEASUREMENT_READ_NO_OVERHEAD
+} BMTH_measurement_read_window_t;
 
 typedef struct BMTH_measurement_series_t
 {
@@ -50,6 +59,7 @@ typedef struct BMTH_measurement_series_t
   uint32_t  values_outlier_count;
   uint32_t  values_static_overhead;
   uint32_t  iteration_count;
+  bool      jitter_detected;
 } BMTH_measurement_series_t;
 
 /* Timers are used for internal time keeping if needed. Here the normal CYCCNT
@@ -162,13 +172,17 @@ extern void BMTH_signalize_jitter_detected(void);
 extern bool BMTH_mseries_iterate(BMTH_measurement_series_t *mseries,
                                  uint32_t t0, uint32_t t1);
 
-extern void BMTH_mseries_set_static_overhead(BMTH_measurement_series_t *mseries,
+extern void BMTH_mseries_add_static_overhead(BMTH_measurement_series_t *mseries,
                                              uint32_t                   oh);
+
+extern void BMTH_mseries_initialize(BMTH_measurement_series_t *mseries,
+                                    size_t buffer_size, uint32_t *buffer,
+                                    BMTH_measurement_read_window_t read_window);
 
 /* Measurement */
 
-extern bool BMTH_get_counter_overhead(uint32_t *cyccnt_assignment_overhead,
-                                      uint32_t  iterations);
+extern bool BMTH_check_read_validity(uint32_t *memory_access_read_overhead,
+                                     uint32_t  iterations);
 
 extern void BMTH_check_hw_influence(uint32_t                   loop_count,
                                     BMTH_measurement_series_t *mseries);

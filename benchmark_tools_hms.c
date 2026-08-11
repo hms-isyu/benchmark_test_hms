@@ -38,13 +38,16 @@ static bool g_WarmUp =
   false; /* flag to indicate if the system has been warmed up */
 
 #if (defined(BMTH_GLOBAL_TIME_STORAGE) && (BMTH_GLOBAL_TIME_STORAGE == 1))
-static BMTH_time_marker_t global_start_time  = 0U;
-static BMTH_time_marker_t global_stop_time   = 0U;
-static uint32_t           global_start_count = 0U;
-static uint32_t           global_stop_count  = 0U;
-static bool               global_activated =
+BMTH_time_marker_t global_start_cnt_marker = 0U;
+BMTH_time_marker_t global_stop_cnt_marker  = 0U;
+static uint32_t    global_start_count      = 0U;
+static uint32_t    global_stop_count       = 0U;
+static bool        global_activated =
   false; /* flag to indicate if the global time storage is activated */
 #endif
+
+static BMTH_time_marker_t t0_dummy = 0;
+static BMTH_time_marker_t t1_dummy = 0;
 
 /*******************************************************************************
  * Prototypes
@@ -53,6 +56,9 @@ static bool               global_activated =
 static void  BMTH_system_warmup(void);
 static void  BMTH_empty_loop(uint32_t loop_count);
 static float BMTH_mseries_calc_average_cyc(BMTH_measurement_series_t *mseries);
+static uint32_t BMTH_get_cross_function_read_window_overhead(void);
+static uint32_t BMTH_get_reg_access_read_overhead(void);
+static uint32_t BMTH_get_memory_access_read_overhead(void);
 
 /*******************************************************************************
  * Code
@@ -143,8 +149,48 @@ uint32_t BMTH_get_global_stop_cnt(void)
 
 #endif
 
-bool BMTH_get_counter_overhead(uint32_t *cyccnt_assignment_overhead,
-                               uint32_t  iterations)
+__attribute__((noinline)) static uint32_t
+BMTH_get_cross_function_read_window_overhead(void)
+{
+
+  BMTH_time_marker_t *p_ = &BMTH_GET_COUNTER();
+  BMTH_RESET_COUNTER();
+
+  BMTH_GET_START_CNT(t0_dummy);
+  __ASM volatile("" : "+r"(p_));
+  BMTH_GET_STOP_CNT(t1_dummy);
+
+  return (t1_dummy - t0_dummy);
+}
+
+__attribute__((noinline)) static uint32_t BMTH_get_reg_access_read_overhead(void)
+{
+  BMTH_time_marker_t t0 = 0U;
+  BMTH_time_marker_t t1 = 0U;
+
+  BMTH_RESET_COUNTER();
+
+  BMTH_GET_START_CNT(t0);
+  __ASM volatile("" ::: "memory");
+  BMTH_GET_STOP_CNT(t1);
+
+  return (t1 - t0);
+}
+
+__attribute__((noinline)) static uint32_t BMTH_get_memory_access_read_overhead(
+  void)
+{
+  BMTH_RESET_COUNTER();
+
+  BMTH_GET_START_CNT(t0_dummy);
+  BMTH_GET_STOP_CNT(t1_dummy);
+
+  return (t1_dummy - t0_dummy);
+}
+
+/* Ensures the user that global scope accesses are not optimized away */
+bool BMTH_check_read_validity(uint32_t *memory_access_read_overhead,
+                              uint32_t  iterations)
 {
   if (g_WarmUp == false)
   {
@@ -152,36 +198,77 @@ bool BMTH_get_counter_overhead(uint32_t *cyccnt_assignment_overhead,
     BMTH_assert_needed_components();
     BMTH_system_warmup();
   }
-  static BMTH_time_marker_t t0 = 0;
-  static BMTH_time_marker_t t1 = 0;
+  *memory_access_read_overhead = BMTH_get_memory_access_read_overhead();
 
-  BMTH_GET_START_CNT(t0);
-  BMTH_GET_STOP_CNT(t1);
-  *cyccnt_assignment_overhead = t1 - t0;
-
-  uint32_t reference = 0U;
+  BMTH_RESET_COUNTER();
 #pragma GCC unroll 1
   for (uint32_t i = 0U; i < iterations; i++)
   {
-    BMTH_GET_START_CNT(t0);
-    BMTH_GET_STOP_CNT(t1);
-    uint32_t oh = t1 - t0;
-    if (i == 0U)
-    {
-      reference = oh;
-    }
-    else if (oh != reference)
+    BMTH_GET_START_CNT(t0_dummy);
+    BMTH_GET_STOP_CNT(t1_dummy);
+    uint32_t oh = t1_dummy - t0_dummy;
+    if (oh != *memory_access_read_overhead)
     {
       return false;
     }
   }
+
   return true;
 }
 
-void BMTH_mseries_set_static_overhead(BMTH_measurement_series_t *mseries,
+void BMTH_mseries_initialize(BMTH_measurement_series_t *mseries,
+                             size_t buffer_size, uint32_t *buffer,
+                             BMTH_measurement_read_window_t read_window)
+{
+  if (g_WarmUp == false)
+  {
+    BMTH_assert_quiet_system();
+    BMTH_assert_needed_components();
+    BMTH_system_warmup();
+  }
+
+  if (buffer_size > 0)
+  {
+    BMTH_ASSERT(buffer != NULL);
+    mseries->values_buffer = buffer;
+  }
+  else
+  {
+    BMTH_ASSERT(buffer == NULL);
+    mseries->values_buffer = NULL;
+  }
+
+  mseries->values_buffer_size     = buffer_size;
+  mseries->values_accumulated     = 0;
+  mseries->last_value             = 0;
+  mseries->values_max             = 0;
+  mseries->values_min             = UINT32_MAX;
+  mseries->values_average         = 0.0f;
+  mseries->values_outlier_count   = 0;
+  mseries->values_static_overhead = 0;
+  mseries->iteration_count        = 0;
+  switch (read_window)
+  {
+  case BMTH_MEASUREMENT_READ_WINDOW_INSIDE_FUNCTION_FUNCTION_SCOPE_VARS:
+    mseries->values_static_overhead += BMTH_get_reg_access_read_overhead();
+    break;
+  case BMTH_MEASUREMENT_READ_WINDOW_INSIDE_FUNCTION_FILE_SCOPE_VARS:
+    mseries->values_static_overhead += BMTH_get_memory_access_read_overhead();
+    break;
+  case BMTH_MEASUREMENT_READ_WINDOW_CROSS_FUNCTIONS_FILE_SCOPE_VARS:
+    mseries->values_static_overhead +=
+      BMTH_get_cross_function_read_window_overhead();
+    break;
+  default:
+    mseries->values_static_overhead += 0;
+    break;
+  }
+}
+
+void BMTH_mseries_add_static_overhead(BMTH_measurement_series_t *mseries,
                                       uint32_t                   oh)
 {
-  mseries->values_static_overhead = oh;
+  mseries->values_static_overhead += oh;
 }
 
 static float BMTH_mseries_calc_average_cyc(BMTH_measurement_series_t *mseries)
@@ -192,9 +279,9 @@ static float BMTH_mseries_calc_average_cyc(BMTH_measurement_series_t *mseries)
 bool BMTH_mseries_iterate(BMTH_measurement_series_t *mseries, uint32_t t0,
                           uint32_t t1)
 {
-  bool no_jitter = true;
-  t1             = t1 - t0;
-  BMTH_ASSERT(t1 > mseries->values_static_overhead);
+  mseries->jitter_detected = false;
+  t1                       = t1 - t0;
+  BMTH_ASSERT(t1 >= mseries->values_static_overhead);
   t1 = t1 - mseries->values_static_overhead;
 
   if (mseries->values_buffer_size == 0)
@@ -228,7 +315,7 @@ bool BMTH_mseries_iterate(BMTH_measurement_series_t *mseries, uint32_t t0,
     if (t1 != (uint32_t) (mseries->values_average))
     {
       mseries->values_outlier_count++;
-      no_jitter = false;
+      mseries->jitter_detected = true;
     }
   }
 
@@ -241,9 +328,9 @@ bool BMTH_mseries_iterate(BMTH_measurement_series_t *mseries, uint32_t t0,
   mseries->last_value = t1;
   mseries->iteration_count++;
 
-  BMTH_mseries_calc_average_cyc(mseries);
+  mseries->values_average = BMTH_mseries_calc_average_cyc(mseries);
 
-  return no_jitter;
+  return !mseries->jitter_detected;
 }
 
 void BMTH_check_hw_influence(uint32_t                   loop_count,
