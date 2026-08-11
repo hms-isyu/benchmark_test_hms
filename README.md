@@ -94,6 +94,51 @@ links the `bmth` target. The library exports the package root and `port/` as
 include directories. The application's include path must additionally resolve
 the configuration header.
 
+## Rules for placing a measurement window
+
+The counter read is not free, and its cost is only constant if the instructions
+around it are. The compiler decides those, and its decision changes between
+optimisation levels, compiler versions and unrelated edits to the same function.
+The following rules keep every read site the same shape, so that the calibrated
+overhead measured once applies everywhere.
+
+1. **Time markers are `static`, never locals.** A `static` is observable outside
+   the function, so the compiler must write it to memory and the sequence is
+   always *load base → read counter → store*. A local may be held in a register
+   with the store elided entirely, depending on register pressure elsewhere in
+   the function, and the read then costs less. Statics are not cheaper; they are
+   deterministic.
+
+2. **Touch each marker exactly once inside a window.** A second access invites
+   common-subexpression elimination and address reuse, and the sequence differs
+   from the calibrated one.
+
+3. **Reset the counter before the window opens, never inside it.** The reset is
+   a store and would otherwise be measured.
+
+4. **Read one counter per build.** `BMTH_GET_COUNTER` is deliberately singular.
+   Capturing a second DWT counter in the same run places its read inside the
+   first counter's window. Use two builds differing only in that macro.
+
+5. **The counter base address and the marker address must be materialised before
+   the window opens.** A file-scope variable's address is a link-time constant
+   that the compiler loads from a literal pool with `ldr rX,[pc,#N]`, and where
+   it places that load is not controllable from C. Verify in the disassembly
+   that it lies ahead of the opening read.
+
+6. **The calibration window must contain the same instructions as a measurement
+   window minus the code under test.** That is what makes subtracting the
+   overhead valid. Re-verify in the disassembly whenever either side is touched,
+   or whenever the optimisation level changes. An instruction that leaves the
+   calibration window silently shifts every reported result by its cost, and the
+   error appears in the reference rather than in the code being measured.
+
+7. **A window that spans a task switch cannot satisfy rule 5 on its closing
+   side.** The closing function begins inside the window, so nothing can be
+   hoisted ahead of it. Such windows carry an additional boundary cost that the
+   ordinary calibration does not cover; it has to be counted from the listing
+   and subtracted separately.
+
 ## Requirements and caveats
 
 - **C11 or higher.** The build fails below that.
@@ -106,9 +151,13 @@ the configuration header.
   freshly attached debugger causes substantial jitter over the first few million
   cycles. Halting debug may remain attached. Intrusive debug facilities and armed
   hardware breakpoints are rejected by the preconditions.
-- **Optimisation level.** Behaviour is consistent across optimisation levels.
-  Placing the markers so that the compiler cannot hoist work out of the measured
-  region remains the caller's responsibility.
+- **Optimisation level.** The calibrated overhead is a property of the build, not
+  of the package, and must be re-measured whenever the flags change. The
+  instructions the compiler places inside a window differ between optimisation
+  levels, and a single additional flag is enough to move one: adding
+  `-fno-schedule-insns2` to an `-O2` build moved an address load out of the
+  calibration window and changed the overhead from 6 to 4 cycles, shifting every
+  reported result by 2. See the rules above.
 - **Noise floor.** The hardware-influence check runs a series over an empty loop
   and characterises the platform, not the code under test. Its spread is the
   noise floor of all later series.
