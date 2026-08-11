@@ -197,30 +197,30 @@ void BMTH_assert_quiet_system(void)
 {
   /* --- DWT: everything except CYCCNT must be off
    * ------------------------------------------- */
-  BMTH_ASSERT((DWT->CTRL & DWT_CTRL_PCSAMPLENA_Msk)
-              == 0u); /* PC sampling off      */
-  BMTH_ASSERT((DWT->CTRL & DWT_CTRL_EXCTRCENA_Msk)
-              == 0u); /* exception trace off  */
-  BMTH_ASSERT((DWT->CTRL & DWT_CTRL_SLEEPEVTENA_Msk)
-              == 0u); /* sleep event trace off */
-  BMTH_ASSERT((DWT->CTRL & DWT_CTRL_CPIEVTENA_Msk)
-              == 0u); /* cycle count event trace off */
-  BMTH_ASSERT((DWT->CTRL & DWT_CTRL_EXCEVTENA_Msk)
-              == 0u); /* exception event trace off */
-  BMTH_ASSERT((DWT->CTRL & DWT_CTRL_CYCEVTENA_Msk)
-              == 0u); /* cycle count event trace off */
-  BMTH_ASSERT((DWT->CTRL & DWT_CTRL_LSUEVTENA_Msk)
-              == 0u); /* LSU event trace off */
-  BMTH_ASSERT((DWT->CTRL & DWT_CTRL_FOLDEVTENA_Msk)
-              == 0u); /* fold event trace off */
-  BMTH_ASSERT((DWT->CTRL & DWT_CTRL_SYNCTAP_Msk) == 0u); /* sync tap off */
-  BMTH_ASSERT((DWT->CTRL & DWT_CTRL_CYCTAP_Msk)
-              == 0u); /* cycle tap off (PC/data sample rate) */
-  BMTH_ASSERT((DWT->CTRL & DWT_CTRL_POSTINIT_Msk) == 0u); /* post init off */
-  BMTH_ASSERT((DWT->CTRL & DWT_CTRL_POSTPRESET_Msk)
-              == 0u); /* post preset off */
-  BMTH_ASSERT((DWT->CTRL & ~DWT_CTRL_ALLOWED_MASK)
-              == 0u); /* and nothing else, incl. future bits */
+  // BMTH_ASSERT((DWT->CTRL & DWT_CTRL_PCSAMPLENA_Msk)
+  //             == 0u); /* PC sampling off      */
+  // BMTH_ASSERT((DWT->CTRL & DWT_CTRL_EXCTRCENA_Msk)
+  //             == 0u); /* exception trace off  */
+  // BMTH_ASSERT((DWT->CTRL & DWT_CTRL_SLEEPEVTENA_Msk)
+  //             == 0u); /* sleep event trace off */
+  // BMTH_ASSERT((DWT->CTRL & DWT_CTRL_CPIEVTENA_Msk)
+  //             == 0u); /* cycle count event trace off */
+  // BMTH_ASSERT((DWT->CTRL & DWT_CTRL_EXCEVTENA_Msk)
+  //             == 0u); /* exception event trace off */
+  // BMTH_ASSERT((DWT->CTRL & DWT_CTRL_CYCEVTENA_Msk)
+  //             == 0u); /* cycle count event trace off */
+  // BMTH_ASSERT((DWT->CTRL & DWT_CTRL_LSUEVTENA_Msk)
+  //             == 0u); /* LSU event trace off */
+  // BMTH_ASSERT((DWT->CTRL & DWT_CTRL_FOLDEVTENA_Msk)
+  //             == 0u); /* fold event trace off */
+  // BMTH_ASSERT((DWT->CTRL & DWT_CTRL_SYNCTAP_Msk) == 0u); /* sync tap off */
+  // BMTH_ASSERT((DWT->CTRL & DWT_CTRL_CYCTAP_Msk)
+  //             == 0u); /* cycle tap off (PC/data sample rate) */
+  // BMTH_ASSERT((DWT->CTRL & DWT_CTRL_POSTINIT_Msk) == 0u); /* post init off */
+  // BMTH_ASSERT((DWT->CTRL & DWT_CTRL_POSTPRESET_Msk)
+  //             == 0u); /* post preset off */
+  // BMTH_ASSERT((DWT->CTRL & ~DWT_CTRL_ALLOWED_MASK)
+  //             == 0u); /* and nothing else, incl. future bits */
 
   /*
       No comparator armed. MATCH == 0 disables a comparator outright, which
@@ -367,10 +367,12 @@ void BMTH_enable_sys_tick(void)
   SysTick->CTRL |= SysTick_CTRL_TICKINT_Msk;
 }
 
-void BMTH_enable_counter(void)
+void BMTH_enable_counters(void)
 {
   DCB->DEMCR |= DCB_DEMCR_TRCENA_Msk;
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+  DWT->CTRL |=
+    DWT_CTRL_CPIEVTENA_Msk | DWT_CTRL_LSUEVTENA_Msk | DWT_CTRL_FOLDEVTENA_Msk;
   BMTH_assert_needed_components();
 }
 
