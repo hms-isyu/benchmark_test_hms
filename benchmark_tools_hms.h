@@ -52,6 +52,19 @@ typedef struct BMTH_measurement_series_t
   uint32_t  iteration_count;
 } BMTH_measurement_series_t;
 
+/* Timers are used for internal time keeping if needed. Here the normal CYCCNT
+ * can be used*/
+__attribute__((always_inline)) static inline uint32_t BMTH_get_timer_value(void)
+{
+  return BMTH_GET_TIMER();
+}
+
+__attribute__((always_inline)) static inline void BMTH_reset_timer(void)
+{
+  BMTH_RESET_TIMER();
+}
+
+/* Counters are used for the Measurement */
 __attribute__((always_inline)) static inline uint32_t BMTH_get_counter_value(
   void)
 {
@@ -84,12 +97,14 @@ __attribute__((always_inline)) static inline void BMTH_reset_counter(void)
       BMTH_doomed();                                                           \
     }                                                                          \
   } while (0)
+#
 
-#define BMTH_ENABLE_TIME(void) BMTH_enable_counter()
+/* enables counter */
+#define BMTH_ENABLE_COUNTERS(void) BMTH_enable_counters()
 
-#define BMTH_RESET_TIME(void) BMTH_reset_counter()
+#define BMTH_RESET_CNTR(void) BMTH_reset_counter()
 
-#define BMTH_GET_START_TIME(t0_)                                               \
+#define BMTH_GET_START_CNT(t0_)                                                \
   do                                                                           \
   {                                                                            \
     __DSB();                                                                   \
@@ -99,7 +114,15 @@ __attribute__((always_inline)) static inline void BMTH_reset_counter(void)
     __ASM volatile("" ::: "memory");                                           \
   } while (0)
 
-#define BMTH_GET_STOP_TIME(t1_)                                                \
+#define BMTH_GET_START_CNT_NO_FLUSH(t0_)                                       \
+  do                                                                           \
+  {                                                                            \
+    __ASM volatile("" ::: "memory");                                           \
+    (t0_) = BMTH_get_counter_value();                                          \
+    __ASM volatile("" ::: "memory");                                           \
+  } while (0)
+
+#define BMTH_GET_STOP_CNT(t1_)                                                 \
   do                                                                           \
   {                                                                            \
     __ASM volatile("" ::: "memory");                                           \
@@ -110,6 +133,15 @@ __attribute__((always_inline)) static inline void BMTH_reset_counter(void)
 #define BMTH_TOGGLE_SIGNAL_SUCCESS(void) BMTH_toggle_signal_success()
 #define BMTH_TOGGLE_SIGNAL_FAILURE(void) BMTH_toggle_signal_failure()
 #define BMTH_TOGGLE_SIGNAL_EVENT(void) BMTH_toggle_signal_event()
+
+/*******************************************************************************
+ * Variables
+ ******************************************************************************/
+
+#if (defined(BMTH_GLOBAL_TIME_STORAGE) && (BMTH_GLOBAL_TIME_STORAGE == 1))
+extern BMTH_time_marker_t global_start_cnt_marker;
+extern BMTH_time_marker_t global_stop_cnt_marker;
+#endif
 
 /*******************************************************************************
  * Prototypes
@@ -144,17 +176,17 @@ extern void BMTH_check_hw_influence(uint32_t                   loop_count,
 /* Global Time Storage */
 
 #if (defined(BMTH_GLOBAL_TIME_STORAGE) && (BMTH_GLOBAL_TIME_STORAGE == 1))
-extern __attribute__((noinline)) void BMTH_set_global_start_time(
+extern __attribute__((noinline)) void BMTH_set_global_start_cnt(
   BMTH_time_marker_t t0);
 
-extern __attribute__((noinline)) void BMTH_set_global_stop_time(
+extern __attribute__((noinline)) void BMTH_set_global_stop_cnt(
   BMTH_time_marker_t t1);
 
-extern uint32_t BMTH_get_global_start_time(void);
+extern uint32_t BMTH_get_global_start_cnt(void);
 
-extern uint32_t BMTH_get_global_stop_time(void);
+extern uint32_t BMTH_get_global_stop_cnt(void);
 
-extern uint32_t BMTH_get_global_start_time_function_overhead(void);
+extern uint32_t BMTH_get_global_start_cnt_function_overhead(void);
 
 extern void BMTH_global_activate(void);
 
@@ -173,6 +205,8 @@ extern void BMTH_assert_quiet_system(void);
 extern void BMTH_assert_needed_components(void);
 
 extern __attribute__((noreturn)) void BMTH_doomed(void);
+
+extern void BMTH_enable_counters(void);
 
 #endif /* BMT_HMS_H */
 

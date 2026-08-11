@@ -92,17 +92,17 @@ void BMTH_global_deactivate(void)
   global_activated = false;
 }
 
-__attribute__((noinline)) void BMTH_set_global_start_time(BMTH_time_marker_t t0)
+__attribute__((noinline)) void BMTH_set_global_start_cnt(BMTH_time_marker_t t0)
 {
   if (!global_activated)
   {
     return;
   }
-  global_start_time = t0;
+  global_start_cnt_marker = t0;
   global_start_count++;
 }
 
-uint32_t BMTH_get_global_start_time_function_overhead(void)
+uint32_t BMTH_get_global_start_cnt_function_overhead(void)
 {
   BMTH_time_marker_t t1        = 0U;
   BMTH_time_marker_t t0        = 0U;
@@ -111,9 +111,9 @@ uint32_t BMTH_get_global_start_time_function_overhead(void)
 
   BMTH_RESET_COUNTER();
 
-  BMTH_GET_START_TIME(t0);
-  BMTH_set_global_start_time(calibrate);
-  BMTH_GET_STOP_TIME(t1);
+  BMTH_GET_START_CNT(t0);
+  BMTH_set_global_start_cnt(calibrate);
+  BMTH_GET_STOP_CNT(t1);
 
   global_start_count--;
 
@@ -121,24 +121,24 @@ uint32_t BMTH_get_global_start_time_function_overhead(void)
   return (t1 - t0);
 }
 
-__attribute__((noinline)) void BMTH_set_global_stop_time(BMTH_time_marker_t t1)
+__attribute__((noinline)) void BMTH_set_global_stop_cnt(BMTH_time_marker_t t1)
 {
   if (!global_activated)
   {
     return;
   }
-  global_stop_time = t1;
+  global_stop_cnt_marker = t1;
   global_stop_count++;
 }
 
-uint32_t BMTH_get_global_start_time(void)
+uint32_t BMTH_get_global_start_cnt(void)
 {
-  return global_start_time;
+  return global_start_cnt_marker;
 }
 
-uint32_t BMTH_get_global_stop_time(void)
+uint32_t BMTH_get_global_stop_cnt(void)
 {
-  return global_stop_time;
+  return global_stop_cnt_marker;
 }
 
 #endif
@@ -152,21 +152,25 @@ bool BMTH_get_counter_overhead(uint32_t *cyccnt_assignment_overhead,
     BMTH_assert_needed_components();
     BMTH_system_warmup();
   }
-  BMTH_time_marker_t t0 = 0;
-  BMTH_time_marker_t t1 = 0;
-  uint32_t           overhead;
+  static BMTH_time_marker_t t0 = 0;
+  static BMTH_time_marker_t t1 = 0;
 
-  BMTH_GET_START_TIME(t0);
-  BMTH_GET_STOP_TIME(t1);
+  BMTH_GET_START_CNT(t0);
+  BMTH_GET_STOP_CNT(t1);
   *cyccnt_assignment_overhead = t1 - t0;
 
+  uint32_t reference = 0U;
 #pragma GCC unroll 1
-  for (uint32_t i = 0; i < iterations; i++)
+  for (uint32_t i = 0U; i < iterations; i++)
   {
-    BMTH_GET_START_TIME(t0);
-    BMTH_GET_STOP_TIME(t1);
-    overhead = t1 - t0;
-    if (overhead != *cyccnt_assignment_overhead)
+    BMTH_GET_START_CNT(t0);
+    BMTH_GET_STOP_CNT(t1);
+    uint32_t oh = t1 - t0;
+    if (i == 0U)
+    {
+      reference = oh;
+    }
+    else if (oh != reference)
     {
       return false;
     }
@@ -251,9 +255,9 @@ void BMTH_check_hw_influence(uint32_t                   loop_count,
 
   for (uint32_t i = 0; i < mseries->values_buffer_size; i++)
   {
-    BMTH_GET_START_TIME(t0);
+    BMTH_GET_START_CNT(t0);
     BMTH_empty_loop(loop_count);
-    BMTH_GET_STOP_TIME(t1);
+    BMTH_GET_STOP_CNT(t1);
     if (!BMTH_mseries_iterate(mseries, t0, t1))
     {
       BMTH_signalize_jitter_detected();
@@ -271,17 +275,17 @@ void BMTH_signalize_mseries_start(void)
 {
   const uint32_t signalize_event_duration_ticks =
     BMTH_MS_to_Ticks(BMTH_SIGNALING_EVNT_DURATION);
-  BMTH_reset_counter();
-  volatile uint32_t counter = BMTH_get_counter_value();
+  BMTH_reset_timer();
+  volatile uint32_t counter = BMTH_get_timer_value();
   BMTH_TOGGLE_SIGNAL_EVENT();
-  while (BMTH_get_counter_value() - counter < signalize_event_duration_ticks)
+  while (BMTH_get_timer_value() - counter < signalize_event_duration_ticks)
   {
     __NOP();
   }
 
-  counter = BMTH_get_counter_value();
+  counter = BMTH_get_timer_value();
   BMTH_TOGGLE_SIGNAL_EVENT();
-  while (BMTH_get_counter_value() - counter < signalize_event_duration_ticks)
+  while (BMTH_get_timer_value() - counter < signalize_event_duration_ticks)
   {
     __NOP();
   }
@@ -291,7 +295,7 @@ void BMTH_signalize_mseries_stop(bool success)
 {
   const uint32_t signalize_event_duration_ticks =
     BMTH_MS_to_Ticks(BMTH_SIGNALING_EVNT_DURATION);
-  BMTH_reset_counter();
+  BMTH_reset_timer();
 
   if (success)
   {
@@ -301,12 +305,12 @@ void BMTH_signalize_mseries_stop(bool success)
   {
     BMTH_TOGGLE_SIGNAL_FAILURE();
   }
-  volatile uint32_t counter = BMTH_get_counter_value();
-  while (BMTH_get_counter_value() - counter < signalize_event_duration_ticks)
+  volatile uint32_t counter = BMTH_get_timer_value();
+  while (BMTH_get_timer_value() - counter < signalize_event_duration_ticks)
   {
     __NOP();
   }
-  counter = BMTH_get_counter_value();
+  counter = BMTH_get_timer_value();
   if (success)
   {
     BMTH_TOGGLE_SIGNAL_SUCCESS();
@@ -315,7 +319,7 @@ void BMTH_signalize_mseries_stop(bool success)
   {
     BMTH_TOGGLE_SIGNAL_FAILURE();
   }
-  while (BMTH_get_counter_value() - counter < signalize_event_duration_ticks)
+  while (BMTH_get_timer_value() - counter < signalize_event_duration_ticks)
   {
     __NOP();
   }
@@ -325,11 +329,11 @@ void BMTH_signalize_jitter_detected(void)
 {
   const uint32_t signalize_event_duration_ticks =
     BMTH_MS_to_Ticks(BMTH_SIGNALING_EVNT_DURATION);
-  BMTH_reset_counter();
-  volatile uint32_t counter = BMTH_get_counter_value();
+  BMTH_reset_timer();
+  volatile uint32_t counter = BMTH_get_timer_value();
 
   BMTH_TOGGLE_SIGNAL_FAILURE();
-  while (BMTH_get_counter_value() - counter < signalize_event_duration_ticks)
+  while (BMTH_get_timer_value() - counter < signalize_event_duration_ticks)
   {
     __NOP();
   }
