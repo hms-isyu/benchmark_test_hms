@@ -188,6 +188,12 @@ __attribute__((noinline)) static uint32_t BMTH_get_memory_access_read_overhead(
   return (t1_dummy - t0_dummy);
 }
 
+static BMTH_measurement_window_status_t BMTH_mwindow_get_status(
+  BMTH_measurement_series_t *mseries)
+{
+  return mseries->mwindow_status;
+}
+
 /* Ensures the user that global scope accesses are not optimized away */
 bool BMTH_check_read_validity(uint32_t *memory_access_read_overhead,
                               uint32_t  iterations)
@@ -247,6 +253,7 @@ void BMTH_mseries_initialize(BMTH_measurement_series_t *mseries,
   mseries->values_outlier_count   = 0;
   mseries->values_static_overhead = 0;
   mseries->iteration_count        = 0;
+  mseries->mwindow_status         = BMTH_MEASUREMENT_WINDOW_UNINITIALIZED;
   switch (read_window)
   {
   case BMTH_MEASUREMENT_READ_WINDOW_INSIDE_FUNCTION_FUNCTION_SCOPE_VARS:
@@ -271,14 +278,28 @@ void BMTH_mseries_add_static_overhead(BMTH_measurement_series_t *mseries,
   mseries->values_static_overhead += oh;
 }
 
+void BMTH_mwindow_open(BMTH_measurement_series_t *mseries)
+{
+  mseries->mwindow_status = BMTH_MEASUREMENT_WINDOW_OPEN;
+}
+
+void BMTH_mwindow_close(BMTH_measurement_series_t *mseries)
+{
+  mseries->mwindow_status = BMTH_MEASUREMENT_WINDOW_CLOSED;
+}
+
 static float BMTH_mseries_calc_average_cyc(BMTH_measurement_series_t *mseries)
 {
   return (mseries->values_accumulated / mseries->iteration_count);
 }
 
-bool BMTH_mseries_iterate(BMTH_measurement_series_t *mseries, uint32_t t0,
-                          uint32_t t1)
+BMTH_measurement_window_status_t BMTH_mseries_iterate(
+  BMTH_measurement_series_t *mseries, uint32_t t0, uint32_t t1)
 {
+  if (BMTH_mwindow_get_status(mseries) != BMTH_MEASUREMENT_WINDOW_OPEN)
+  {
+    return mseries->mwindow_status;
+  }
   mseries->jitter_detected = false;
   t1                       = t1 - t0;
   BMTH_ASSERT(t1 >= mseries->values_static_overhead);
@@ -330,7 +351,9 @@ bool BMTH_mseries_iterate(BMTH_measurement_series_t *mseries, uint32_t t0,
 
   mseries->values_average = BMTH_mseries_calc_average_cyc(mseries);
 
-  return !mseries->jitter_detected;
+  return mseries->jitter_detected
+           ? BMTH_MEASUREMENT_WINDOW_COMPLETED_WITH_JITTER
+           : BMTH_MEASUREMENT_WINDOW_COMPLETED_NO_JITTER;
 }
 
 void BMTH_check_hw_influence(uint32_t                   loop_count,
@@ -345,7 +368,8 @@ void BMTH_check_hw_influence(uint32_t                   loop_count,
     BMTH_GET_START_CNT(t0);
     BMTH_empty_loop(loop_count);
     BMTH_GET_STOP_CNT(t1);
-    if (!BMTH_mseries_iterate(mseries, t0, t1))
+    if (BMTH_mseries_iterate(mseries, t0, t1)
+        == BMTH_MEASUREMENT_WINDOW_COMPLETED_WITH_JITTER)
     {
       BMTH_signalize_jitter_detected();
     }

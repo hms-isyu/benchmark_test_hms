@@ -47,19 +47,29 @@ typedef enum BMTH_measurement_read_window_t
   BMTH_MEASUREMENT_READ_NO_OVERHEAD
 } BMTH_measurement_read_window_t;
 
+typedef enum BMTH_measurement_window_status_t
+{
+  BMTH_MEASUREMENT_WINDOW_OPEN,
+  BMTH_MEASUREMENT_WINDOW_CLOSED,
+  BMTH_MEASUREMENT_WINDOW_COMPLETED_NO_JITTER,
+  BMTH_MEASUREMENT_WINDOW_COMPLETED_WITH_JITTER,
+  BMTH_MEASUREMENT_WINDOW_UNINITIALIZED
+} BMTH_measurement_window_status_t;
+
 typedef struct BMTH_measurement_series_t
 {
-  uint32_t  values_accumulated;
-  uint32_t  last_value;
-  uint32_t *values_buffer;
-  size_t    values_buffer_size;
-  uint32_t  values_max;
-  uint32_t  values_min;
-  float     values_average;
-  uint32_t  values_outlier_count;
-  uint32_t  values_static_overhead;
-  uint32_t  iteration_count;
-  bool      jitter_detected;
+  uint32_t                         values_accumulated;
+  uint32_t                         last_value;
+  uint32_t                        *values_buffer;
+  size_t                           values_buffer_size;
+  uint32_t                         values_max;
+  uint32_t                         values_min;
+  float                            values_average;
+  uint32_t                         values_outlier_count;
+  uint32_t                         values_static_overhead;
+  uint32_t                         iteration_count;
+  BMTH_measurement_window_status_t mwindow_status;
+  bool                             jitter_detected;
 } BMTH_measurement_series_t;
 
 /* Timers are used for internal time keeping if needed. Here the normal CYCCNT
@@ -169,8 +179,8 @@ extern void BMTH_signalize_jitter_detected(void);
 
 /* Measurement series */
 
-extern bool BMTH_mseries_iterate(BMTH_measurement_series_t *mseries,
-                                 uint32_t t0, uint32_t t1);
+extern BMTH_measurement_window_status_t BMTH_mseries_iterate(
+  BMTH_measurement_series_t *mseries, uint32_t t0, uint32_t t1);
 
 extern void BMTH_mseries_add_static_overhead(BMTH_measurement_series_t *mseries,
                                              uint32_t                   oh);
@@ -178,6 +188,10 @@ extern void BMTH_mseries_add_static_overhead(BMTH_measurement_series_t *mseries,
 extern void BMTH_mseries_initialize(BMTH_measurement_series_t *mseries,
                                     size_t buffer_size, uint32_t *buffer,
                                     BMTH_measurement_read_window_t read_window);
+
+extern void BMTH_mwindow_open(BMTH_measurement_series_t *mseries);
+
+extern void BMTH_mwindow_close(BMTH_measurement_series_t *mseries);
 
 /* Measurement */
 
