@@ -204,7 +204,12 @@ bool BMTH_check_read_validity(uint32_t *memory_access_read_overhead,
     BMTH_assert_needed_components();
     BMTH_system_warmup();
   }
-  *memory_access_read_overhead = BMTH_get_memory_access_read_overhead();
+
+  uint32_t overhead = BMTH_get_memory_access_read_overhead();
+  if (memory_access_read_overhead != NULL)
+  {
+    *memory_access_read_overhead = overhead;
+  }
 
   BMTH_RESET_COUNTER();
 #pragma GCC unroll 1
@@ -213,7 +218,7 @@ bool BMTH_check_read_validity(uint32_t *memory_access_read_overhead,
     BMTH_GET_START_CNT(t0_dummy);
     BMTH_GET_STOP_CNT(t1_dummy);
     uint32_t oh = t1_dummy - t0_dummy;
-    if (oh != *memory_access_read_overhead)
+    if (oh != overhead)
     {
       return false;
     }
