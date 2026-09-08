@@ -39,6 +39,27 @@
 typedef volatile uint32_t
   BMTH_time_marker_t; /* volatile to prevent compiler optimizations */
 
+/*
+ * Which read-pair artefact a series carries. The counter keeps running between
+ * the two CYCCNT reads, so whatever instrumentation sits strictly between them
+ * lands in every sample and has to be subtracted. Pick by counting exactly
+ * those instructions in the disassembly of the window -- not by where the
+ * window looks like it starts and ends:
+ *
+ *   CROSS_FUNCTIONS_FILE_SCOPE_VARS   3   ldr &t0, str t0 | ldr base, ldr CYCCNT
+ *   INSIDE_FUNCTION_FILE_SCOPE_VARS   2   ldr &t0, str t0 | ldr CYCCNT
+ *   INSIDE_FUNCTION_FUNCTION_SCOPE_VARS 1 str t0          | ldr CYCCNT
+ *
+ * The third instruction is the one that decides: a stop capture taken in a
+ * frame that no longer holds the counter base -- another thread, or a callee
+ * the window closes inside -- has to reload it from the literal pool, and pays
+ * CROSS. A stop capture that finds the base still in a callee-saved register
+ * pays INSIDE_FUNCTION. The difference is one ldr, and it does not cancel
+ * unless the same mistake is made on both sides of the comparison.
+ *
+ * A probe that measures two differently shaped windows through a part/mode
+ * argument needs the value chosen per arm, not once per function.
+ */
 typedef enum BMTH_measurement_read_window_t
 {
   BMTH_MEASUREMENT_READ_WINDOW_CROSS_FUNCTIONS_FILE_SCOPE_VARS,
