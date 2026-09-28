@@ -16,3 +16,13 @@ config BMTH_FRDM_MCXN947
     default n
     help
       Select this option to enable the FRDM-MCXN947 board support for the HMS Benchmark Tool.
+
+config BMTH_TEST_MEM_ALLOC
+    bool "Allocation tests"
+    help
+
+      All allocation tests run the same workloads out of
+      over an arena of MEM_ARENA_SIZE bytes
+      (MEM_ARENA_MULTIPLIER * MEM_REQUESTED_SPACE, src/mem/mem_harness.h).
+      The adapter is the only file that knows which allocator is under
+      test. See src/mem/README.md.

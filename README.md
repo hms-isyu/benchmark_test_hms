@@ -56,7 +56,7 @@ The package is incomplete on its own. The application supplies:
   `port/bmth_port.h`. Counter enabling and SysTick gating are not part of it;
   they belong to the core layer.
 
-In this repository both live in the application's `timing/` directory, with the
+In this repository both live in the application's `src/` directory, with the
 signals mapped to the three board LEDs.
 
 ## Configuration

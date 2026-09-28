@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mem Allocation Workloads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --paper:      #eef1f2;
+    --surface:    #ffffff;
+    --surface-2:  #e5eaec;
+    --ink:        #0f1a20;
+    --ink-2:      #4c6170;
+    --rule:       #c8d2d7;
+    --used:       #35525f;
+    --used-ink:   #eff5f7;
+    --free-fill:  #d5e9ed;
+    --free-line:  #12707f;
+    --free-ink:   #09454f;
+    --meta:       #b6c3c9;
+    --meta-ink:   #3d4d55;
+    --signal:     #9d5806;
+    --signal-2:   #f4e4ca;
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0b1216;
+      --surface:    #121c21;
+      --surface-2:  #18252b;
+      --ink:        #dce6ea;
+      --ink-2:      #93a8b2;
+      --rule:       #2a3a42;
+      --used:       #517a8c;
+      --used-ink:   #061118;
+      --free-fill:  #0d3a41;
+      --free-line:  #37a8b9;
+      --free-ink:   #a6e1e9;
+      --meta:       #2f4149;
+      --meta-ink:   #9fb2bb;
+      --signal:     #e0a64a;
+      --signal-2:   #38280f;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0b1216;
+    --surface:    #121c21;
+    --surface-2:  #18252b;
+    --ink:        #dce6ea;
+    --ink-2:      #93a8b2;
+    --rule:       #2a3a42;
+    --used:       #517a8c;
+    --used-ink:   #061118;
+    --free-fill:  #0d3a41;
+    --free-line:  #37a8b9;
+    --free-ink:   #a6e1e9;
+    --meta:       #2f4149;
+    --meta-ink:   #9fb2bb;
+    --signal:     #e0a64a;
+    --signal-2:   #38280f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding-inline: 16px;
+    padding-block: 56px 88px;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .prose { max-width: 66ch; display: flex; flex-direction: column; gap: 14px; }
+  .prose p { margin: 0; }
+
+  h1 {
+    font-family: var(--cond);
+    font-weight: 700;
+    font-size: clamp(34px, 6vw, 52px);
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  h2 {
+    font-family: var(--cond);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin: 0 0 14px;
+  }
+
+  .standfirst { font-size: 17.5px; line-height: 1.5; color: var(--ink-2); max-width: 60ch; }
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  code { font-family: var(--mono); font-size: 0.9em; }
+
+  /* ---------- legend ---------- */
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 18px; height: 12px; display: inline-block; border: 1px solid var(--rule); }
+  .sw.used { background: var(--used); border-color: var(--used); }
+  .sw.free { background: var(--free-fill); border: 1px dashed var(--free-line); }
+  .sw.meta { background: var(--meta); border-color: var(--meta); }
+  .sw.hot  { background: transparent; outline: 3px solid var(--signal); outline-offset: -3px; }
+
+  /* ---------- stepper ---------- */
+
+  .machine { display: flex; flex-direction: column; gap: 14px; }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tab {
+    font-family: var(--cond);
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 7px 12px;
+    background: var(--surface);
+    color: var(--ink-2);
+    border: 1px solid var(--rule);
+    cursor: pointer;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-selected="true"] {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+  .tab:focus-visible, .stepbtn:focus-visible, .chip:focus-visible {
+    outline: 2px solid var(--signal); outline-offset: 2px;
+  }
+
+  .claim {
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    border-left: 2px solid var(--signal);
+    padding-left: 12px;
+    max-width: 78ch;
+    margin: 0;
+  }
+  .claim b { color: var(--ink); font-weight: 600; }
+
+  .opts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .opts .lbl { font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); margin-right: 4px; }
+  .stepbtn[aria-pressed="true"] { background: var(--signal); border-color: var(--signal); color: #fff; }
+  :root[data-theme="dark"] .stepbtn[aria-pressed="true"] { color: #1a1206; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .stepbtn[aria-pressed="true"] { color: #1a1206; }
+  }
+
+  .panel { background: var(--surface); border: 1px solid var(--rule); }
+
+  .controls {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 12px; border-bottom: 1px solid var(--rule);
+  }
+  .stepbtn {
+    font-family: var(--mono); font-size: 12px;
+    padding: 5px 10px; background: var(--surface-2); color: var(--ink);
+    border: 1px solid var(--rule); cursor: pointer;
+  }
+  .stepbtn[disabled] { opacity: 0.4; cursor: default; }
+  .chiprow { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+  .chip {
+    font-family: var(--mono); font-size: 11px; width: 26px; height: 26px;
+    display: grid; place-items: center;
+    background: transparent; color: var(--ink-2);
+    border: 1px solid var(--rule); cursor: pointer;
+  }
+  .chip.win { border-color: var(--signal); color: var(--signal); }
+  .chip[aria-current="true"] { background: var(--signal); border-color: var(--signal); color: #fff; }
+  :root[data-theme="dark"] .chip[aria-current="true"] { color: #1a1206; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .chip[aria-current="true"] { color: #1a1206; }
+  }
+
+  .opline {
+    font-family: var(--mono); font-size: 13px;
+    padding: 12px 14px; border-bottom: 1px solid var(--rule);
+    display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+  }
+  .opline .idx { color: var(--ink-2); }
+  .opline .call { color: var(--ink); font-weight: 500; }
+  .opline .res { color: var(--signal); }
+  .badge {
+    font-family: var(--cond); font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 1px 6px; border: 1px solid var(--rule); color: var(--ink-2);
+  }
+  .badge.win { background: var(--signal-2); border-color: var(--signal); color: var(--signal); }
+
+  .stripwrap { padding: 16px 14px 14px; overflow-x: auto; border-bottom: 1px solid var(--rule); }
+  .strip { display: flex; min-width: 600px; }
+  .chunk {
+    position: relative;
+    min-width: 0;
+    min-height: 54px;
+    border: 1px solid var(--rule);
+    border-left-width: 4px;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 4px 4px;
+    overflow: hidden;
+  }
+  .chunk .nm { font-family: var(--cond); font-weight: 700; font-size: 13px; line-height: 1.1; white-space: nowrap; }
+  .chunk .sz { font-family: var(--mono); font-size: 10px; line-height: 1.3; opacity: 0.85; white-space: nowrap; }
+  .chunk.used  { background: var(--used); color: var(--used-ink); border-color: var(--used); border-left-color: var(--used); }
+  .chunk.free  { background: var(--free-fill); color: var(--free-ink); border-color: var(--free-line); border-left-color: var(--free-line); border-style: dashed; border-left-style: solid; }
+  .chunk.meta  { background: var(--meta); color: var(--meta-ink); border-color: var(--meta); border-left-color: var(--meta); }
+  .chunk.hot   { outline: 3px solid var(--signal); outline-offset: -3px; }
+  .chunk.hot .nm { color: var(--signal); }
+  .chunk.used.hot .nm { color: #ffd79a; }
+  .chunk.none  { flex: 1 1 0; background: transparent; border-style: dashed; color: var(--ink-2); }
+
+  .lower { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  @media (max-width: 760px) { .lower { grid-template-columns: minmax(0, 1fr); } }
+
+  .cell { padding: 14px; min-width: 0; }
+  .cell + .cell { border-left: 1px solid var(--rule); }
+  @media (max-width: 760px) {
+    .cell + .cell { border-left: 0; border-top: 1px solid var(--rule); }
+  }
+  .cellhead {
+    font-family: var(--cond); font-size: 11.5px; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2);
+    margin-bottom: 10px;
+  }
+
+  .trace { font-family: var(--mono); font-size: 12px; line-height: 1.65; margin: 0; padding: 0; list-style: none; }
+  .trace li { display: flex; gap: 7px; }
+  .trace li::before { content: "›"; color: var(--signal); }
+  .trace .fn { color: var(--free-line); white-space: nowrap; }
+  .trace .hit { color: var(--signal); font-weight: 500; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td {
+    text-align: left; padding: 4px 8px 4px 0;
+    border-bottom: 1px solid var(--rule);
+    font-variant-numeric: tabular-nums;
+    vertical-align: top;
+  }
+  td:first-child { color: var(--ink-2); font-family: var(--mono); white-space: nowrap; }
+  td + td { font-family: var(--mono); }
+  td.hi { color: var(--signal); font-weight: 500; }
+
+  .foot { font-size: 12.5px; color: var(--ink-2); font-family: var(--mono); margin: 0; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .chunk { transition: background-color 140ms linear, color 140ms linear; }
+  }
+</style>
+<style>
+  html { -webkit-text-size-adjust: 100%; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="prose">
+    <p class="eyebrow">mem allocation test &middot; workloads W1 to W8</p>
+    <h1>Arena, Window, Workload</h1>
+    <p class="standfirst">Every workload of the mem allocation test on a scaled arena. <strong>One step is one operation of the harness; a timed step is one measurement window.</strong> The allocator is a generic model: it carves each allocation from free space and merges adjacent free space on free.</p>
+    <div class="legend">
+      <span><i class="sw used"></i>live allocation</span>
+      <span><i class="sw free"></i>free space</span>
+      <span><i class="sw meta"></i>fixed arena cost</span>
+      <span><i class="sw hot"></i>touched by this step</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>Step through it</h2>
+    <div class="machine">
+      <div class="tabs" id="tabs" role="tablist" aria-label="Workload"></div>
+      <p class="claim" id="claim"></p>
+      <div class="opts" id="stepopts"></div>
+      <div class="opts" id="policyopts"></div>
+      <div class="panel">
+        <div class="controls">
+          <button class="stepbtn" id="prev" type="button">&larr; back</button>
+          <button class="stepbtn" id="next" type="button">forward &rarr;</button>
+          <button class="stepbtn" id="reset" type="button">restart</button>
+          <div class="chiprow" id="chips"></div>
+        </div>
+        <div class="opline" id="opline"></div>
+        <div class="stripwrap">
+          <div class="strip" id="strip"></div>
+        </div>
+        <div class="lower">
+          <div class="cell">
+            <div class="cellhead">What the harness did</div>
+            <ul class="trace" id="trace"></ul>
+          </div>
+          <div class="cell">
+            <div class="cellhead">Recorded</div>
+            <table><tbody id="meas"></tbody></table>
+          </div>
+        </div>
+      </div>
+      <p class="foot" id="arenafoot"></p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- scale ---------- */
+
+  var R = 4;                 // requested space, units
+  var A = 8 * R;             // arena, units: A = 8 * R as in the harness
+  var FIXED = 2;             // fixed arena cost, units
+  var STEPS = [1, 2, 4];     // request r per step, units: three consecutive steps
+  var W7_CELL = 16;          // bytes per unit in the fit-policy workloads
+  var W7_ARENA = 8192 / W7_CELL;
+  var TAIL_CAP = 14;         // drawn width of a long free block, units
+  var ITER = 4;              // demo: iterations per measurement
+
+  var POLICIES = [
+    { id: "first", lbl: "first fit, address order" },
+    { id: "next",  lbl: "next fit, address order" },
+    { id: "best",  lbl: "best fit" },
+    { id: "lifo",  lbl: "first fit, LIFO list" }
+  ];
+
+  /* ---------- generic allocator model ---------- */
+
+  function Arena(size, fixed, g, pieces) {
+    this.size = size;
+    this.g = g;
+    this.pieces = !!pieces;
+    this.blocks = [];
+    this.order = [];          // free list, head first (LIFO policy only)
+    this.rover = fixed;       // next fit resumes here
+    if (fixed > 0) { this.blocks.push({ a: 0, n: fixed, k: "meta", name: "fixed" }); }
+    if (this.pieces) {
+      var a = fixed;
+      for (; a + g <= size; a += g) { this.blocks.push({ a: a, n: g, k: "free" }); }
+      if (a < size) { this.blocks.push({ a: a, n: size - a, k: "meta", name: "rest" }); }
+    } else {
+      this.blocks.push({ a: fixed, n: size - fixed, k: "free" });
+      this.order = [fixed];
+    }
+  }
+
+  Arena.prototype.at = function (a) {
+    for (var i = 0; i < this.blocks.length; i++) { if (this.blocks[i].a === a) { return i; } }
+    return -1;
+  };
+
+  Arena.prototype.alloc = function (n, policy, name) {
+    var i, b, pick = -1, bl = this.blocks;
+    if (this.pieces) {
+      if (n > this.g) { return -1; }
+      for (i = 0; i < bl.length; i++) { if (bl[i].k === "free") { pick = i; break; } }
+      if (pick < 0) { return -1; }
+      bl[pick].k = "used";
+      bl[pick].name = name;
+      return bl[pick].a;
+    }
+    function fits(x) { return x.k === "free" && x.n >= n; }
+    if (policy === "lifo") {
+      for (i = 0; i < this.order.length; i++) {
+        var j = this.at(this.order[i]);
+        if (fits(bl[j])) { pick = j; break; }
+      }
+    } else if (policy === "best") {
+      for (i = 0; i < bl.length; i++) {
+        if (fits(bl[i]) && (pick < 0 || bl[i].n < bl[pick].n)) { pick = i; }
+      }
+    } else if (policy === "next") {
+      for (i = 0; i < bl.length; i++) { if (fits(bl[i]) && bl[i].a >= this.rover) { pick = i; break; } }
+      if (pick < 0) { for (i = 0; i < bl.length; i++) { if (fits(bl[i])) { pick = i; break; } } }
+    } else {
+      for (i = 0; i < bl.length; i++) { if (fits(bl[i])) { pick = i; break; } }
+    }
+    if (pick < 0) { return -1; }
+    b = bl[pick];
+    var oi = this.order.indexOf(b.a);
+    if (b.n > n) {
+      var rest = { a: b.a + n, n: b.n - n, k: "free" };
+      bl.splice(pick + 1, 0, rest);
+      if (oi >= 0) { this.order[oi] = rest.a; }
+    } else if (oi >= 0) {
+      this.order.splice(oi, 1);
+    }
+    b.n = n;
+    b.k = "used";
+    b.name = name;
+    this.rover = b.a + n;
+    return b.a;
+  };
+
+  Arena.prototype.dropOrder = function (a) {
+    var oi = this.order.indexOf(a);
+    if (oi >= 0) { this.order.splice(oi, 1); }
+  };
+
+  Arena.prototype.free = function (a) {
+    var bl = this.blocks, i = this.at(a), b = bl[i], merged = [];
+    b.k = "free";
+    b.name = null;
+    if (this.pieces) { return { a: a, merged: merged }; }
+    var r = bl[i + 1];
+    if (r && r.k === "free") { b.n += r.n; this.dropOrder(r.a); bl.splice(i + 1, 1); merged.push("right"); }
+    var l = bl[i - 1];
+    if (l && l.k === "free") { l.n += b.n; this.dropOrder(l.a); bl.splice(i, 1); b = l; merged.push("left"); }
+    this.order.unshift(b.a);
+    return { a: b.a, merged: merged };
+  };
+
+  Arena.prototype.used = function () {
+    var s = 0;
+    this.blocks.forEach(function (b) { if (b.k === "used" || (b.k === "meta" && b.name === "fixed")) { s += b.n; } });
+    return s;
+  };
+
+  Arena.prototype.live = function () {
+    return this.blocks.filter(function (b) { return b.k === "used"; }).map(function (b) { return b.a; });
+  };
+
+  function clog(ar, r, held) {
+    var n = 0, a;
+    while ((a = ar.alloc(r, "first", String(n))) >= 0) { if (held) { held.push(a); } n++; }
+    return n;
+  }
+
+  function freeAll(ar) { ar.live().forEach(function (a) { ar.free(a); }); }
+
+  /* ---------- frame recorder ---------- */
+
+  function Rec() { this.frames = []; this.tr = []; this.m = []; this.labels = {}; this.cap = 0; this.cnt = {}; this.iter = 0; this.iters = ITER; }
+
+  Rec.prototype.it = function (key, perIter) {
+    if (this.iters < 2) { return; }
+    this.cnt[key] = (this.cnt[key] || 0) + 1;
+    this.set(key, this.cnt[key] + " of " + this.iters * (perIter || 1), true);
+  };
+
+  Rec.prototype.t = function (kind, text) { this.tr.push({ k: kind, x: text }); };
+
+  Rec.prototype.set = function (key, val, hi) {
+    for (var i = 0; i < this.m.length; i++) {
+      if (this.m[i][0] === key) { this.m[i] = [key, String(val), !!hi]; return; }
+    }
+    this.m.push([key, String(val), !!hi]);
+  };
+
+  Rec.prototype.snap = function (ar, call, res, hot, win) {
+    var labels = this.labels;
+    var blocks = ar ? ar.blocks.map(function (b) {
+      return { a: b.a, n: b.n, k: b.k, name: b.name || (b.k === "free" ? (labels[b.a] || "free") : "") };
+    }) : [];
+    this.frames.push({
+      blocks: blocks, call: call, res: res, hot: hot || [], win: !!win, iter: this.iter,
+      trace: this.tr, meas: this.m.map(function (r) { return r.slice(); }), cap: this.cap
+    });
+    this.tr = [];
+  };
+
+  /* ---------- workloads ---------- */
+
+  function wProbe(rec) {
+    var r = STEPS[0], ar = new Arena(A, FIXED, r);
+    rec.t("setup", "destroy the arena, create it at the smallest step");
+    rec.snap(ar, "create arena, g = " + r + "u", "nothing live");
+
+    var n0 = clog(ar, r);
+    rec.t("setup", "allocate " + r + "u until refused");
+    rec.set("first clog", n0);
+    rec.snap(ar, "clog(" + r + "u)", n0 + " allocations", ar.live());
+
+    freeAll(ar);
+    rec.t("setup", "free every allocation of the first clog");
+    rec.snap(ar, "free all", "nothing live");
+
+    var n1 = clog(ar, r);
+    rec.t("setup", "allocate " + r + "u until refused");
+    rec.set("second clog", n1);
+    rec.set("freeing reclaims", n1 === n0 ? "known" : "not known", true);
+    rec.snap(ar, "clog(" + r + "u)", n1 + " allocations, equal to the first", ar.live());
+
+    freeAll(ar);
+    clog(ar, r);
+    rec.t("setup", "free all, then clog again and keep the allocations");
+    rec.snap(ar, "free all, clog(" + r + "u)", "arena clogged again", ar.live());
+
+    ar = new Arena(A, FIXED, r);
+    rec.t("setup", "destroy and create over the clogged arena");
+    rec.snap(ar, "destroy, create arena, g = " + r + "u", "nothing live");
+
+    var n2 = clog(ar, r);
+    rec.t("setup", "allocate " + r + "u until refused");
+    rec.set("third clog", n2);
+    rec.set("destroy + create empties", n2 === n0 ? "known" : "not known", true);
+    rec.snap(ar, "clog(" + r + "u)", n2 + " allocations, equal to the first", ar.live());
+
+    ar = new Arena(A, FIXED, r);
+    rec.t("setup", "free all, destroy and create");
+    rec.snap(ar, "destroy, create arena", "workloads follow");
+    return rec.frames;
+  }
+
+  function wW1(rec, r) {
+    var ar = new Arena(A, FIXED, r);
+    rec.t("setup", "destroy, create at g = " + r + "u");
+    rec.snap(ar, "create arena, g = " + r + "u", "nothing live");
+    var a = ar.alloc(r, "first", "M");
+    rec.t("window", "open, one allocation of " + r + "u, close");
+    rec.it("W1 iterations, this step");
+    rec.set("status", a >= 0 ? "MEM_STATUS_OK" : "MEM_STATUS_SETUP_FAILED", true);
+    rec.snap(ar, "M = alloc(" + r + "u)", a >= 0 ? "carved from untouched space" : "refused", [a], true);
+    return rec.frames;
+  }
+
+  function wW2(rec, r) {
+    var ar = new Arena(A, FIXED, r), i;
+    rec.t("setup", "destroy, create at g = " + r + "u");
+    rec.snap(ar, "create arena, g = " + r + "u", "nothing live");
+    var h = [];
+    for (i = 0; i < 3; i++) { h.push(ar.alloc(r, "first", "i" + i)); rec.t("setup", "allocate i" + i); }
+    rec.snap(ar, "alloc(" + r + "u) x3", "i0, i1, i2 live", h);
+    ar.free(h[1]);
+    rec.labels[h[1]] = "hole";
+    rec.t("setup", "free i1: a hole of exactly " + r + "u between i0 and i2");
+    rec.snap(ar, "free(i1)", "one hole of the request", [h[1]]);
+    var a = ar.alloc(r, "first", "M");
+    rec.t("window", "open, one allocation of " + r + "u, close");
+    rec.t("window", a === h[1] ? "lands in the hole" : "lands outside the hole");
+    rec.it("W2 iterations, this step");
+    rec.set("status", "MEM_STATUS_OK", true);
+    rec.snap(ar, "M = alloc(" + r + "u)", a === h[1] ? "hole filled" : "placed elsewhere", [a], true);
+    return rec.frames;
+  }
+
+  function wW3(rec, r) {
+    var ar = new Arena(A, FIXED, r);
+    rec.t("setup", "destroy, create at g = " + r + "u");
+    rec.snap(ar, "create arena, g = " + r + "u", "nothing live");
+    var a = ar.alloc(r, "first", "i0");
+    rec.t("setup", "allocate i0, the only live allocation");
+    rec.snap(ar, "alloc(" + r + "u)", "i0 live", [a]);
+    var f = ar.free(a);
+    rec.t("window", "open, free i0, close");
+    rec.t("window", f.merged.length ? "merges with free space on its " + f.merged.join(" and ") : "no merge");
+    rec.it("W3 iterations, this step");
+    rec.set("status", "MEM_STATUS_OK", true);
+    rec.snap(ar, "free(i0)", "nothing live", [f.a], true);
+    return rec.frames;
+  }
+
+  function wW4(rec, r) {
+    var ar = new Arena(A, FIXED, r), c = R / r, k;
+    rec.t("setup", "destroy, create at g = " + r + "u");
+    rec.t("setup", "read the arena size the allocator reports");
+    rec.set("c(s) = R / r", c);
+    rec.set("reported arena", A + "u");
+    rec.snap(ar, "create arena, g = " + r + "u", "nothing live");
+    for (k = 0; k < c; k++) {
+      var a = ar.alloc(r, "first", "i" + k);
+      rec.t("window", "open, allocation " + (k + 1) + " of " + c + ", close");
+      rec.it("W4 iterations, this step", c);
+      rec.snap(ar, "alloc(" + r + "u)", a >= 0 ? "i" + k + " live" : "refused, loop stops", [a], true);
+      if (a < 0) { break; }
+    }
+    var used = ar.used();
+    rec.t("setup", "all windows closed, allocations still live");
+    rec.t("setup", "read used space and fixed arena cost");
+    rec.set("used space T(s)", used + "u", true);
+    rec.set("fixed arena cost", FIXED + "u");
+    rec.set("R <= T(s) <= A", (used >= R && used <= A) ? "holds" : "MEM_FAILURE_SPACE_INVARIANT");
+    rec.set("status", "MEM_STATUS_OK", true);
+    rec.snap(ar, "read used space", "T(s) = " + used + "u", ar.live());
+    return rec.frames;
+  }
+
+  function wW4F(rec, r) {
+    var ar = new Arena(A, FIXED, r, true), c = R / r, got = [], k;
+    rec.t("setup", "fixed-size allocator: the arena is cut into pieces of " + r + "u");
+    rec.set("c(s) = R / r", c);
+    rec.snap(ar, "create arena, g = " + r + "u", "pieces of " + r + "u");
+    for (k = 0; k < c; k++) { got.push(ar.alloc(r, "first", "p" + k)); }
+    rec.t("window", "open, one call allocating " + c + " pieces, close");
+    rec.it("W4_FIXED_SIZE iterations, this step");
+    rec.snap(ar, "alloc_n(" + c + ")", c + " pieces live", got, true);
+    var used = ar.used();
+    rec.t("setup", "window closed, pieces still live, read used space");
+    rec.set("used space T(s)", used + "u", true);
+    rec.set("R <= T(s) <= A", (used >= R && used <= A) ? "holds" : "MEM_FAILURE_SPACE_INVARIANT");
+    rec.set("status", "MEM_STATUS_OK", true);
+    rec.snap(ar, "read used space", "T(s) = " + used + "u", got);
+    return rec.frames;
+  }
+
+  function wSweepOdd(rec, ar, held, c, name) {
+    for (var i = 1; i <= 2 * c - 1; i += 2) {
+      var f = ar.free(held[i]);
+      rec.t("window", "open, free index " + i + ", close");
+      rec.t("window", f.merged.length ? "merges with free space on its " + f.merged.join(" and ") : "both neighbours live, no merge");
+      rec.it(name + " iterations, this step", c);
+      rec.snap(ar, "free(" + i + ")", f.merged.length ? "one free block of " + ar.blocks[ar.at(f.a)].n + "u" : "one more hole", [f.a], true);
+    }
+  }
+
+  function wW5(rec, r) {
+    var ar = new Arena(A, FIXED, r), c = R / r, held = [];
+    rec.t("setup", "destroy, create at g = " + r + "u");
+    rec.set("c(s) = R / r", c);
+    rec.snap(ar, "create arena, g = " + r + "u", "nothing live");
+    var n = clog(ar, r, held);
+    rec.t("setup", "clog: allocate " + r + "u until refused");
+    rec.set("clog N(s)", n);
+    rec.set("needs N(s) >= 2c(s)", 2 * c);
+    rec.snap(ar, "clog(" + r + "u)", n + " allocations, indices 0.." + (n - 1), ar.live());
+    if (n < 2 * c) {
+      rec.set("status", "MEM_STATUS_CLOG_TOO_SHORT", true);
+      rec.snap(ar, "stop", "clog too short");
+      return rec.frames;
+    }
+    wSweepOdd(rec, ar, held, c, "W5");
+    rec.set("status", "MEM_STATUS_OK", true);
+    rec.frames[rec.frames.length - 1].meas = rec.m.map(function (x) { return x.slice(); });
+    return rec.frames;
+  }
+
+  function wW6(rec, r) {
+    var ar = new Arena(A, FIXED, r), c = R / r, held = [], i;
+    rec.t("setup", "destroy, create at g = " + r + "u");
+    rec.set("c(s) = R / r", c);
+    rec.snap(ar, "create arena, g = " + r + "u", "nothing live");
+    var n = clog(ar, r, held);
+    rec.t("setup", "clog: allocate " + r + "u until refused");
+    rec.set("clog N(s)", n);
+    rec.set("needs N(s) >= 2c(s) + 1", 2 * c + 1);
+    rec.snap(ar, "clog(" + r + "u)", n + " allocations, indices 0.." + (n - 1), ar.live());
+    if (n < 2 * c + 1) {
+      rec.set("status", "MEM_STATUS_CLOG_TOO_SHORT", true);
+      rec.snap(ar, "stop", "clog too short");
+      return rec.frames;
+    }
+    var hot = [];
+    for (i = 0; i <= 2 * c; i += 2) { hot.push(held[i]); ar.free(held[i]); }
+    rec.t("setup", "free the even indices 0.." + (2 * c) + ", outside any window");
+    rec.snap(ar, "free(0, 2, .., " + (2 * c) + ")", "holes on both sides of every odd index", hot);
+    wSweepOdd(rec, ar, held, c, "W6");
+    rec.set("status", "MEM_STATUS_OK", true);
+    rec.frames[rec.frames.length - 1].meas = rec.m.map(function (x) { return x.slice(); });
+    return rec.frames;
+  }
+
+  /* fit-policy workloads: units of 16 B */
+
+  var LAYOUT = [
+    { n: 1 }, { n: 2, gap: "decoy 1" },
+    { n: 1 }, { n: 20, gap: "large" },
+    { n: 1 }, { n: 8, gap: "exact" },
+    { n: 1 }, { n: 2, gap: "decoy 2" },
+    { n: 1 }, { n: 2, gap: "decoy 3" },
+    { n: 1 }
+  ];
+  var FREE_ORDER = {
+    A: ["decoy 1", "large", "exact", "decoy 2", "decoy 3"],
+    B: ["decoy 1", "exact", "large", "decoy 2", "decoy 3"],
+    C: ["decoy 1", "large", "exact", "decoy 2", "decoy 3"]
+  };
+  var PROBE = 8;
+
+  function classify(a, gapAt) {
+    if (a < 0) { return "NULL"; }
+    var g = gapAt[a];
+    if (g === "large") { return "GAP256"; }
+    if (g === "exact") { return "GAP128"; }
+    if (g) { return "DECOY32"; }
+    return "OTHER";
+  }
+
+  function guess(res) {
+    var a = res.A, b = res.B, c = res.C;
+    if (!a || !b || !c) { return "MEM_FIT_GUESS_UNKNOWN"; }
+    if (a === "DECOY32" || b === "DECOY32" || c === "DECOY32") { return "MEM_FIT_GUESS_BUG"; }
+    if (a === "NULL") { return "MEM_FIT_GUESS_REFUSED"; }
+    if (a !== b) { return "MEM_FIT_GUESS_LIST_ORDERED"; }
+    if (a === "GAP128") { return "MEM_FIT_GUESS_BEST_FIT"; }
+    if (a === "GAP256" && c === "GAP256") { return "MEM_FIT_GUESS_FIRST_FIT"; }
+    if (a === "GAP256" && c === "GAP128") { return "MEM_FIT_GUESS_NEXT_FIT"; }
+    return "MEM_FIT_GUESS_OTHER";
+  }
+
+  function wW7(rec, run, policy, all) {
+    var ar = new Arena(W7_ARENA, FIXED, 1), gapAt = {}, byGap = {};
+    rec.cap = TAIL_CAP;
+    rec.t("setup", "W7_" + run + ": destroy, create at the separator size as granularity");
+    rec.snap(ar, "W7_" + run + ": create arena, g = 16 B", "nothing live");
+    var hot = [];
+    LAYOUT.forEach(function (e) {
+      var a = ar.alloc(e.n, policy, e.gap ? e.gap : "sep");
+      hot.push(a);
+      if (e.gap) { gapAt[a] = e.gap; byGap[e.gap] = a; }
+    });
+    rec.t("setup", "allocate 11 blocks: separators and the five gaps to be");
+    rec.snap(ar, "build layout", "separators before, between and after the gaps", hot);
+    FREE_ORDER[run].forEach(function (g, i) {
+      ar.free(byGap[g]);
+      rec.labels[byGap[g]] = g;
+      rec.t("setup", "free gap " + (i + 1) + " of 5: " + g);
+      rec.snap(ar, "free(" + g + ")", (i === 4) ? "five gaps free" : "gap freed", [byGap[g]]);
+    });
+    if (run === "C") {
+      var f = ar.alloc(PROBE, policy, "first probe");
+      rec.t("setup", "allocate one probe outside any window");
+      rec.snap(ar, "alloc(128 B)", "lands in " + (gapAt[f] || "free tail"), [f]);
+      var fr = ar.free(f);
+      rec.t("setup", "free it again");
+      rec.snap(ar, "free(first probe)", "layout as before", [fr.a]);
+    }
+    var p = ar.alloc(PROBE, policy, "probe");
+    var cls = classify(p, gapAt);
+    rec.t(run === "A" ? "window" : "setup", run === "A" ? "open, one allocation of 128 B, close" : "one allocation of 128 B, no window");
+    rec.t(run === "A" ? "window" : "setup", "returned address classified: " + cls);
+    if (run === "A") { rec.it("W7_A iterations"); }
+    rec.set("W7_" + run + " gap", cls, true);
+    rec.set("W7_" + run + " status", "MEM_STATUS_OK");
+    all[run] = cls;
+    if (run === "C") {
+      rec.set("W7_A / W7_B / W7_C", all.A + " / " + all.B + " / " + all.C);
+      rec.set("fit policy", guess(all), true);
+    } else {
+      rec.set("fit policy", "pending: needs W7_A, W7_B and W7_C");
+    }
+    rec.snap(ar, "alloc(128 B)", p >= 0 ? "lands in " + (gapAt[p] || "free tail") : "refused", [p], run === "A");
+    return { frames: rec.frames, cls: cls };
+  }
+
+  function wW8(rec) {
+    STEPS.forEach(function (r, i) {
+      rec.t("setup", "destroy whatever the last step made");
+      rec.snap(null, "destroy arena", "no arena");
+      var ar = new Arena(A, FIXED, r, true);
+      rec.t("window", "open, create the arena at g = " + r + "u, close");
+      rec.it("W8 iterations, step " + (i + 1));
+      rec.snap(ar, "create arena, g = " + r + "u", Math.floor((A - FIXED) / r) + " pieces of " + r + "u", ar.blocks.map(function (b) { return b.a; }), true);
+    });
+    return rec.frames;
+  }
+
+  var SCENARIOS = [
+    { id: "probe", tab: "Probe", claim: "Before any workload the harness clogs an arena at the smallest step three times. <b>Equal counts establish that freeing reclaims space and that destroying and creating the arena empties it.</b>", build: wProbe },
+    { id: "w1", tab: "W1", steps: true, claim: "Arena created, nothing live. <b>One window around one allocation.</b>", build: wW1 },
+    { id: "w2", tab: "W2", steps: true, claim: "Three allocations, the second freed: <b>one hole of exactly the request between two live allocations</b>. One window around the allocation that follows.", build: wW2 },
+    { id: "w3", tab: "W3", steps: true, claim: "One allocation, the only live one. <b>One window around its free.</b>", build: wW3 },
+    { id: "w4", tab: "W4", steps: true, claim: "Up to c(s) = R / r allocations, <b>one window each</b>, stopped at the first refusal. Used space and fixed arena cost are read after the last window, with the allocations live.", build: wW4 },
+    { id: "w4f", tab: "W4_FIXED_SIZE", steps: true, claim: "A fixed-size allocator cut at the request. <b>One window around one call allocating c(s) pieces.</b> Not applicable where the allocator has no such call.", build: wW4F },
+    { id: "w5", tab: "W5", steps: true, claim: "Arena clogged. The odd indices 1 .. 2c(s) &minus; 1 are freed ascending, <b>one window each</b>. The even indices stay live, so no free merges.", build: wW5 },
+    { id: "w6", tab: "W6", steps: true, claim: "Arena clogged, the even indices 0 .. 2c(s) freed outside any window. The same odd frees as W5, <b>each merging with free space on both sides</b>.", build: wW6 },
+    { id: "w7", tab: "W7_A + W7_B + W7_C", policy: true, claim: "One fit-policy measurement: <b>W7_A, W7_B and W7_C run together</b>, each on a newly created arena with five gaps between live separators. The gaps are freed in allocation order (A, C) or with the exact gap before the large gap (B); C allocates and frees one probe before its own. Only the W7_A probe is timed. <b>The fit policy exists only once all three gaps are recorded.</b> Not applicable where the allocator is fixed-size.", build: null },
+    { id: "w8", tab: "W8", claim: "The arena destroyed, then <b>one window around its creation</b> at granularity g = r, for every step.", build: wW8 }
+  ];
+
+  var cur = 1, step = 0, sIdx = 0, pIdx = 0;
+
+  function repeat(fn) {
+    var rec = new Rec();
+    for (var k = 1; k <= ITER; k++) {
+      rec.iter = k;
+      rec.labels = {};
+      fn(rec);
+    }
+    return rec.frames;
+  }
+
+  function framesFor(sc) {
+    if (sc.id === "probe") { var once = new Rec(); wProbe(once); return once.frames; }
+    if (sc.id === "w7") {
+      var pol = POLICIES[pIdx].id;
+      var one = new Rec(), res = {};
+      one.iters = 1;
+      ["A", "B", "C"].forEach(function (run) { wW7(one, run, pol, res); });
+      return one.frames;
+    }
+    if (sc.steps) { return repeat(function (rec) { sc.build(rec, STEPS[sIdx]); }); }
+    return repeat(sc.build);
+  }
+
+  /* ---------- rendering ---------- */
+
+  var elTabs = document.getElementById("tabs");
+  var elClaim = document.getElementById("claim");
+  var elStepOpts = document.getElementById("stepopts");
+  var elPolOpts = document.getElementById("policyopts");
+  var elChips = document.getElementById("chips");
+  var elStrip = document.getElementById("strip");
+  var elTrace = document.getElementById("trace");
+  var elMeas = document.getElementById("meas");
+  var elOp = document.getElementById("opline");
+  var elPrev = document.getElementById("prev");
+  var elNext = document.getElementById("next");
+  var elReset = document.getElementById("reset");
+  var elFoot = document.getElementById("arenafoot");
+
+  var frames = [];
+
+  function rebuild() { frames = framesFor(SCENARIOS[cur]); if (step > frames.length - 1) { step = frames.length - 1; } }
+
+  SCENARIOS.forEach(function (sc, i) {
+    var b = document.createElement("button");
+    b.className = "tab";
+    b.type = "button";
+    b.setAttribute("role", "tab");
+    b.textContent = sc.tab;
+    b.addEventListener("click", function () { cur = i; step = 0; rebuild(); draw(); });
+    elTabs.appendChild(b);
+  });
+
+  function optRow(el, label, items, get, set) {
+    el.innerHTML = "";
+    var l = document.createElement("span");
+    l.className = "lbl";
+    l.textContent = label;
+    el.appendChild(l);
+    items.forEach(function (txt, i) {
+      var b = document.createElement("button");
+      b.className = "stepbtn";
+      b.type = "button";
+      b.textContent = txt;
+      b.setAttribute("aria-pressed", i === get() ? "true" : "false");
+      b.addEventListener("click", function () { set(i); step = 0; rebuild(); draw(); });
+      el.appendChild(b);
+    });
+  }
+
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+  function draw() {
+    var sc = SCENARIOS[cur];
+    var f = frames[step];
+
+    Array.prototype.forEach.call(elTabs.children, function (b, i) {
+      b.setAttribute("aria-selected", i === cur ? "true" : "false");
+    });
+    elClaim.innerHTML = sc.claim;
+
+    elStepOpts.hidden = !sc.steps;
+    if (sc.steps) {
+      optRow(elStepOpts, "request r", STEPS.map(function (r, i) {
+        return "step " + (i + 1) + ": r = " + r + "u, c(s) = " + (R / r);
+      }), function () { return sIdx; }, function (i) { sIdx = i; });
+    }
+    elPolOpts.hidden = !sc.policy;
+    if (sc.policy) {
+      optRow(elPolOpts, "allocator model", POLICIES.map(function (p) { return p.lbl; }),
+             function () { return pIdx; }, function (i) { pIdx = i; });
+    }
+
+    elChips.innerHTML = "";
+    frames.forEach(function (fr, i) {
+      var c = document.createElement("button");
+      c.className = "chip" + (fr.win ? " win" : "");
+      c.type = "button";
+      c.textContent = i;
+      c.setAttribute("aria-label", "step " + i + (fr.win ? ", timed" : ""));
+      if (i === step) { c.setAttribute("aria-current", "true"); }
+      c.addEventListener("click", function () { step = i; draw(); });
+      elChips.appendChild(c);
+    });
+    elPrev.disabled = step === 0;
+    elNext.disabled = step === frames.length - 1;
+
+    elOp.innerHTML = '<span class="idx">' + step + "/" + (frames.length - 1) + "</span>" +
+      (f.iter ? '<span class="idx">iteration ' + f.iter + "/" + ITER + "</span>" : "") +
+      '<span class="badge' + (f.win ? " win" : "") + '">' + (f.win ? "window" : "untimed") + "</span>" +
+      '<span class="call">' + esc(f.call) + '</span><span class="res">&rarr; ' + esc(f.res) + "</span>";
+
+    elStrip.innerHTML = "";
+    if (f.blocks.length === 0) {
+      var d0 = document.createElement("div");
+      d0.className = "chunk none";
+      d0.innerHTML = '<span class="nm">no arena</span><span class="sz">destroyed</span>';
+      elStrip.appendChild(d0);
+    }
+    f.blocks.forEach(function (b) {
+      var d = document.createElement("div");
+      var w = (f.cap && b.n > f.cap) ? f.cap : b.n;
+      d.className = "chunk " + (b.k === "meta" ? "meta" : b.k) + (f.hot.indexOf(b.a) >= 0 ? " hot" : "");
+      d.style.flex = w + " 1 0px";
+      var unit = f.cap ? " x 16 B" : "u";
+      d.innerHTML = '<span class="nm">' + esc(b.name) + '</span><span class="sz">' + b.n + unit + "</span>";
+      d.title = (b.name ? b.name + " · " : "") + b.k + " · offset " + b.a + " · " + b.n + (f.cap ? " x 16 B" : " units");
+      elStrip.appendChild(d);
+    });
+
+    elTrace.innerHTML = "";
+    f.trace.forEach(function (t) {
+      var li = document.createElement("li");
+      li.innerHTML = '<span class="fn">' + t.k + '</span><span class="' + (t.k === "window" ? "hit" : "") + '">' + esc(t.x) + "</span>";
+      elTrace.appendChild(li);
+    });
+
+    elMeas.innerHTML = "";
+    if (f.meas.length === 0) {
+      elMeas.innerHTML = "<tr><td>nothing yet</td><td></td></tr>";
+    }
+    f.meas.forEach(function (m) {
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + esc(m[0]) + '</td><td class="' + (m[2] ? "hi" : "") + '">' + esc(m[1]) + "</td>";
+      elMeas.appendChild(tr);
+    });
+
+    elFoot.textContent = sc.policy
+      ? "Scaled arena: one unit is 16 B, arena 8192 B = " + W7_ARENA + " units, the free tail drawn shortened. One run of W7_A, W7_B and W7_C, no repetition. Separator 16 B, decoy gap 32 B, large gap 320 B, exact gap and probe 128 B. Arrow keys step."
+      : "Scaled arena: A = 8 · R as in the harness, here R = " + R + "u and A = " + A + "u, fixed arena cost " + FIXED + "u, no per-allocation bookkeeping. The three steps double the request. Orange chips are measurement windows. Each workload runs " + ITER + " iterations, each from a newly created arena. Arrow keys step.";
+  }
+
+  elPrev.addEventListener("click", function () { if (step > 0) { step--; draw(); } });
+  elNext.addEventListener("click", function () { if (step < frames.length - 1) { step++; draw(); } });
+  elReset.addEventListener("click", function () { step = 0; draw(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowLeft") { elPrev.click(); }
+    if (e.key === "ArrowRight") { elNext.click(); }
+  });
+
+  rebuild();
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -38,4 +38,13 @@ if(CONFIG_BMTH_FRDM_MCXN947)
     target_sources(bmth INTERFACE
         ${CURRENT_MODULE_PATH}/cores/bmth_m33.c
     )
+
+target_sources_ifdef(CONFIG_BMTH_TEST_MEM_ALLOC bmth INTERFACE
+                     ${CURRENT_MODULE_PATH}/tests/mem_allocation/mem_harness.c)
+
+target_include_directories_ifdef(CONFIG_BMTH_TEST_MEM_ALLOC bmth INTERFACE
+    ${CURRENT_MODULE_PATH}/tests/mem_allocation
+)
+
+
 endif()
