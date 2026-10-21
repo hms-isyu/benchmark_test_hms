@@ -46,6 +46,28 @@ typedef struct
 #define FPB_CTRL_NUM_CODE_HI_SHIFT (12U)
 #define FPB_COMP_BE_MASK (1UL << 0U)
 
+/* Automatic clock gating override bits of every RAM bank controller. */
+#define BMTH_AUTOCLKGATEOVERRIDE_RAM_ALL                                       \
+  (SYSCON_AUTOCLKGATEOVERRIDE_RAMB_CTRL_MASK                                   \
+   | SYSCON_AUTOCLKGATEOVERRIDE_RAMC_CTRL_MASK                                 \
+   | SYSCON_AUTOCLKGATEOVERRIDE_RAMD_CTRL_MASK                                 \
+   | SYSCON_AUTOCLKGATEOVERRIDE_RAME_CTRL_MASK                                 \
+   | SYSCON_AUTOCLKGATEOVERRIDE_RAMF_CTRL_MASK                                 \
+   | SYSCON_AUTOCLKGATEOVERRIDE_RAMG_CTRL_MASK                                 \
+   | SYSCON_AUTOCLKGATEOVERRIDE_RAMH_CTRL_MASK)
+#define BMTH_AUTOCLKGATEOVERRIDEC_RAM_ALL                                      \
+  (SYSCON_AUTOCLKGATEOVERRIDEC_RAMA_MASK | SYSCON_AUTOCLKGATEOVERRIDEC_RAMX_MASK)
+
+/* ECC enable bits of every RAM bank pair. */
+#define BMTH_ECC_ENABLE_CTRL_RAM_ALL                                           \
+  (SYSCON_ECC_ENABLE_CTRL_RAMA_ECC_ENABLE_MASK                                 \
+   | SYSCON_ECC_ENABLE_CTRL_RAMB_RAMX_ECC_ENABLE_MASK                          \
+   | SYSCON_ECC_ENABLE_CTRL_RAMD_RAMC_ECC_ENABLE_MASK                          \
+   | SYSCON_ECC_ENABLE_CTRL_RAMF_RAME_ECC_ENABLE_MASK)
+
+/* Write key for CPUCTRL.PROT; writes without it have no effect. */
+#define BMTH_CPUCTRL_PROT_KEY (0xC0C4u)
+
 /*
     ETMv4 instruction trace unit: optional in silicon, absent from CMSIS, and
    located wherever the ROM table says. Registers are therefore addressed
@@ -355,6 +377,10 @@ void BMTH_assert_quiet_system(void)
   BMTH_ASSERT((CMX_PERFMON0->PMCR[0].PMCR & SYSPM_PMCR_SSC_MASK) == 0u);
   BMTH_ASSERT((SYSCON->LPCAC_CTRL & SYSCON_LPCAC_CTRL_DIS_LPCAC_MASK)
               != 0u); /* LPCAC disabled */
+  BMTH_ASSERT((SYSCON->AUTOCLKGATEOVERRIDE & BMTH_AUTOCLKGATEOVERRIDE_RAM_ALL)
+              == BMTH_AUTOCLKGATEOVERRIDE_RAM_ALL); /* RAMB..RAMH ungated */
+  BMTH_ASSERT((SYSCON->AUTOCLKGATEOVERRIDEC & BMTH_AUTOCLKGATEOVERRIDEC_RAM_ALL)
+              == BMTH_AUTOCLKGATEOVERRIDEC_RAM_ALL); /* RAMA, RAMX ungated */
 }
 
 void BMTH_disable_sys_tick(void)
@@ -375,5 +401,133 @@ void BMTH_enable_counters(void)
     DWT_CTRL_CPIEVTENA_Msk | DWT_CTRL_LSUEVTENA_Msk | DWT_CTRL_FOLDEVTENA_Msk;
   BMTH_assert_needed_components();
 }
+
+void BMTH_disable_cache(void)
+{
+  /* SystemInit enabled the LPCAC before main and Zephyr never turns it off:
+   * disable and clear it. */
+  SYSCON->LPCAC_CTRL |=
+    (SYSCON_LPCAC_CTRL_DIS_LPCAC_MASK | SYSCON_LPCAC_CTRL_CLR_LPCAC_MASK);
+}
+
+void BMTH_enable_cache(void)
+{
+  SYSCON->LPCAC_CTRL &= ~SYSCON_LPCAC_CTRL_DIS_LPCAC_MASK;
+}
+
+void BMTH_disable_autoclockgating(void)
+{
+  /*disable automatic clock gating of all RAM bank controllers (RAMA..RAMH,
+   * RAMX)*/
+  SYSCON->AUTOCLKGATEOVERRIDEC |= BMTH_AUTOCLKGATEOVERRIDEC_RAM_ALL;
+  SYSCON->AUTOCLKGATEOVERRIDE |= BMTH_AUTOCLKGATEOVERRIDE_RAM_ALL;
+}
+
+void BMTH_enable_autoclockgating(void)
+{
+  /*restore automatic clock gating of all RAM bank controllers (RAMA..RAMH,
+   * RAMX)*/
+  SYSCON->AUTOCLKGATEOVERRIDEC &= ~BMTH_AUTOCLKGATEOVERRIDEC_RAM_ALL;
+  SYSCON->AUTOCLKGATEOVERRIDE &= ~BMTH_AUTOCLKGATEOVERRIDE_RAM_ALL;
+}
+
+void BMTH_disable_ram_ecc(void)
+{
+  SYSCON0->ECC_ENABLE_CTRL &= ~BMTH_ECC_ENABLE_CTRL_RAM_ALL;
+}
+
+void BMTH_enable_ram_ecc(void)
+{
+  SYSCON0->ECC_ENABLE_CTRL |= BMTH_ECC_ENABLE_CTRL_RAM_ALL;
+}
+
+void BMTH_disable_cpu1(void)
+{
+  /* hold CPU1 in reset; CPUCTRL writes take effect only with the PROT key */
+  SYSCON0->CPUCTRL = SYSCON_CPUCTRL_PROT(BMTH_CPUCTRL_PROT_KEY)
+                     | (SYSCON0->CPUCTRL & ~SYSCON_CPUCTRL_PROT_MASK)
+                     | SYSCON_CPUCTRL_CPU1RSTEN_MASK;
+}
+
+void BMTH_enable_cpu1(void)
+{
+  /* release CPU1 from reset */
+  SYSCON0->CPUCTRL = SYSCON_CPUCTRL_PROT(BMTH_CPUCTRL_PROT_KEY)
+                     | (SYSCON0->CPUCTRL
+                        & ~(SYSCON_CPUCTRL_PROT_MASK
+                            | SYSCON_CPUCTRL_CPU1RSTEN_MASK));
+}
+
+void BMTH_disable_edma0(void)
+{
+  SYSCON0->AHBCLKCTRLCLR[0] = SYSCON_AHBCLKCTRL0_DMA0_MASK;
+}
+
+void BMTH_enable_edma0(void)
+{
+  SYSCON0->AHBCLKCTRLSET[0] = SYSCON_AHBCLKCTRL0_DMA0_MASK;
+}
+
+void BMTH_disable_smartdma(void)
+{
+  SYSCON0->AHBCLKCTRLCLR[1] = SYSCON_AHBCLKCTRL1_SmartDMA_MASK;
+}
+
+void BMTH_enable_smartdma(void)
+{
+  SYSCON0->AHBCLKCTRLSET[1] = SYSCON_AHBCLKCTRL1_SmartDMA_MASK;
+}
+
+void BMTH_disable_edma1(void)
+{
+  SYSCON0->AHBCLKCTRLCLR[2] = SYSCON_AHBCLKCTRL2_DMA1_MASK;
+}
+
+void BMTH_enable_edma1(void)
+{
+  SYSCON0->AHBCLKCTRLSET[2] = SYSCON_AHBCLKCTRL2_DMA1_MASK;
+}
+
+void BMTH_disable_syspm(void)
+{
+  /* SSC = 0b001: local stop */
+  CMX_PERFMON0->PMCR[0].PMCR =
+    (CMX_PERFMON0->PMCR[0].PMCR & ~SYSPM_PMCR_SSC_MASK) | SYSPM_PMCR_SSC(1u);
+}
+
+void BMTH_enable_syspm(void)
+{
+  /* SSC = 0b010: local start */
+  CMX_PERFMON0->PMCR[0].PMCR =
+    (CMX_PERFMON0->PMCR[0].PMCR & ~SYSPM_PMCR_SSC_MASK) | SYSPM_PMCR_SSC(2u);
+}
+
+void BMTH_disable_noise_sources(void)
+{
+  /* puts every SoC-level noise source checked by BMTH_assert_quiet_system()
+   * into its quiet state */
+  BMTH_disable_ram_ecc();
+  BMTH_disable_cpu1();
+  BMTH_disable_edma0();
+  BMTH_disable_smartdma();
+  BMTH_disable_edma1();
+  BMTH_disable_syspm();
+  BMTH_disable_cache();
+  BMTH_disable_autoclockgating();
+}
+
+void BMTH_enable_noise_sources(void)
+{
+  /* reverts BMTH_disable_noise_sources(), in reverse order */
+  BMTH_enable_autoclockgating();
+  BMTH_enable_cache();
+  BMTH_enable_syspm();
+  BMTH_enable_edma1();
+  BMTH_enable_smartdma();
+  BMTH_enable_edma0();
+  BMTH_enable_cpu1();
+  BMTH_enable_ram_ecc();
+}
+
 
 /*!@}*/

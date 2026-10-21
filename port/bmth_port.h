@@ -17,6 +17,8 @@
 #ifndef BMTH_PORT_H
 #define BMTH_PORT_H
 
+#include <stdbool.h>
+
 /*******************************************************************************
  * Prototypes
  ******************************************************************************/
@@ -31,11 +33,47 @@ extern void BMTH_toggle_signal_event(void);
 
 /* Hardware */
 
-extern void BMTH_hardware_init(void);
+extern void BMTH_hardware_init(bool quiet);
 
 extern void BMTH_disable_sys_tick(void);
 
 extern void BMTH_enable_sys_tick(void);
+
+extern void BMTH_disable_autoclockgating(void);
+
+extern void BMTH_enable_autoclockgating(void);
+
+extern void BMTH_disable_cache(void);
+
+extern void BMTH_enable_cache(void);
+
+extern void BMTH_disable_ram_ecc(void);
+
+extern void BMTH_enable_ram_ecc(void);
+
+extern void BMTH_disable_cpu1(void);
+
+extern void BMTH_enable_cpu1(void);
+
+extern void BMTH_disable_edma0(void);
+
+extern void BMTH_enable_edma0(void);
+
+extern void BMTH_disable_smartdma(void);
+
+extern void BMTH_enable_smartdma(void);
+
+extern void BMTH_disable_edma1(void);
+
+extern void BMTH_enable_edma1(void);
+
+extern void BMTH_disable_syspm(void);
+
+extern void BMTH_enable_syspm(void);
+
+extern void BMTH_disable_noise_sources(void);
+
+extern void BMTH_enable_noise_sources(void);
 
 extern void BMTH_enable_counter(void);
 
