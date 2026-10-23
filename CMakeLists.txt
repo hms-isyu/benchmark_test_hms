@@ -6,10 +6,6 @@
 
 cmake_minimum_required(VERSION 3.22)
 
-if(NOT CMAKE_C_STANDARD OR CMAKE_C_STANDARD LESS 11)
-    message(FATAL_ERROR "BMTH Generated code requires C11 or higher")
-endif()
-
 set(CURRENT_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR})
 set(BMTH_PORT_PATH ${CURRENT_MODULE_PATH}/port)
 
